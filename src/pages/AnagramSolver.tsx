@@ -1,5 +1,5 @@
 import React, { useContext, useState } from "react";
-import { DictionaryContext } from "@/context/DictionaryContext";
+import DictionaryContext from "@/context/DictionaryContext";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
