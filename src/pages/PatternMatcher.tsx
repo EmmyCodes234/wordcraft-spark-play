@@ -1,13 +1,12 @@
 import React, { useContext, useState } from "react";
-import { DictionaryContext } from "../App";
+import { DictionaryContext } from "@/context/DictionaryContext";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, ChevronDown, ChevronUp } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 
-export default function PatternMatcher() {
+  export default function PatternMatcher() {
   const dictionary = useContext(DictionaryContext);
   const [pattern, setPattern] = useState("");
   const [sort, setSort] = useState("length-desc");
