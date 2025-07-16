@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Navbar from "./components/layout/navbar";
 import Landing from "./pages/Landing";
 import Welcome from "./pages/Welcome";
+import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
 import WordLookup from "./pages/WordLookup";
 import AnagramSolver from "./pages/AnagramSolver";
@@ -15,6 +16,7 @@ import QuizMode from "./pages/QuizMode";
 import NotFound from "./pages/NotFound";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
+import StudyDeck from "./pages/StudyDeck";
 import { AuthProvider } from "./context/AuthContext";
 import { CardboxProvider } from "./context/CardboxContext";
 import Dashboard from "./pages/Dashboard";
@@ -34,6 +36,7 @@ export default function App() {
               <Routes>
                 <Route path="/" element={<Landing />} />
                 <Route path="/welcome" element={<Welcome />} />
+                <Route path="/auth" element={<Auth />} />
                 <Route path="/onboarding" element={<Onboarding />} />
                 <Route
                   path="/dashboard"
@@ -95,6 +98,15 @@ export default function App() {
                     <ProtectedRoute>
                       <Navbar />
                       <Settings />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/study-deck"
+                  element={
+                    <ProtectedRoute>
+                      <Navbar />
+                      <StudyDeck />
                     </ProtectedRoute>
                   }
                 />

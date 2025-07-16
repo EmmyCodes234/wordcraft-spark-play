@@ -14,8 +14,8 @@ const Landing = () => {
         Your ultimate Scrabble and word mastery companion. Train, explore, and master words like never before.
       </p>
       <button
-        onClick={() => navigate("/login")}
-        className="bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-full shadow-lg transition-all duration-300"
+        onClick={() => navigate("/auth")}
+        className="bg-gradient-primary hover:opacity-90 text-white font-semibold py-3 px-8 rounded-full shadow-elegant transition-all duration-300 hover:scale-105"
       >
         Get Started
       </button>

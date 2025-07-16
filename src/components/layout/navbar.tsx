@@ -4,7 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 
 export default function Navbar() {
-  const { user, logout } = useAuth();
+  const { user, signOut } = useAuth();
   const location = useLocation();
 
   const navLinks = [
@@ -40,7 +40,7 @@ export default function Navbar() {
           ))}
 
           <button
-            onClick={logout}
+            onClick={signOut}
             className="ml-2 px-3 py-1 text-sm font-medium bg-destructive text-destructive-foreground rounded hover:bg-destructive/90 transition"
           >
             Logout
@@ -49,16 +49,10 @@ export default function Navbar() {
       ) : (
         <div className="flex gap-3">
           <Link
-            to="/login"
+            to="/auth"
             className="text-sm font-medium px-3 py-1 rounded hover:bg-primary/10 transition-all"
           >
-            Login
-          </Link>
-          <Link
-            to="/signup"
-            className="text-sm font-medium px-3 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90 transition"
-          >
-            Sign Up
+            Sign In
           </Link>
         </div>
       )}

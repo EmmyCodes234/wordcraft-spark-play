@@ -5,13 +5,15 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ArrowRight, ArrowLeft, BookOpen, User, Check } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
-import { supabase } from '@/lib/supabaseClient';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
 
 export default function Onboarding() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     name: '',
@@ -36,25 +38,48 @@ export default function Onboarding() {
   };
 
   const handleFinish = async () => {
+    if (!user) return;
+    
     setSaving(true);
     let detectedSkill = 'Beginner';
     if (formData.skillWords.length >= 8) detectedSkill = 'Advanced';
     else if (formData.skillWords.length >= 4) detectedSkill = 'Intermediate';
 
-    const { error } = await supabase
-      .from('user_settings')
-      .upsert({
-        id: user.id,
-        preferred_focus: formData.focus,
-        skill_level: detectedSkill,
-        onboarding_completed: true
-      });
+    try {
+      const { error } = await supabase
+        .from('user_settings')
+        .upsert({
+          id: user.id,
+          preferred_focus: formData.focus,
+          skill_level: detectedSkill,
+          onboarding_completed: true
+        });
 
-    setSaving(false);
-    if (!error) {
+      if (error) {
+        console.error("Error saving onboarding data:", error);
+        toast({
+          title: "Error",
+          description: "Failed to save your preferences. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Welcome to WordSmith!",
+        description: "Your account has been set up successfully.",
+      });
+      
       navigate('/dashboard');
-    } else {
+    } catch (error) {
       console.error("Error saving onboarding data:", error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
     }
   };
 
