@@ -10,6 +10,7 @@ import Welcome from "./pages/Welcome";
 import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
 import WordLookup from "./pages/WordLookup";
+import WordJudge from "./pages/WordJudge";
 import AnagramSolver from "./pages/AnagramSolver";
 import PatternMatcher from "./pages/PatternMatcher";
 import QuizMode from "./pages/QuizMode";
@@ -53,6 +54,15 @@ export default function App() {
                     <ProtectedRoute>
                       <Navbar />
                       <WordLookup />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/judge"
+                  element={
+                    <ProtectedRoute>
+                      <Navbar />
+                      <WordJudge />
                     </ProtectedRoute>
                   }
                 />

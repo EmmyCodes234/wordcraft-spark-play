@@ -10,6 +10,7 @@ export default function Navbar() {
   const navLinks = [
     { path: "/dashboard", label: "Dashboard" },
     { path: "/lookup", label: "Word Lookup" },
+    { path: "/judge", label: "Word Judge" },
     { path: "/anagram", label: "Anagram Solver" },
     { path: "/pattern", label: "Pattern Matcher" },
     { path: "/quiz", label: "Quiz Mode" },

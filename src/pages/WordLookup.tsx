@@ -72,7 +72,7 @@ const WordLookup = () => {
         {/* Header */}
         <div className="text-center space-y-4">
           <h1 className="text-5xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-            Word Judge
+            Word Lookup
           </h1>
           <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
             Enter words separated by spaces to validate them against the CSW24 lexicon and analyze their Scrabble value.

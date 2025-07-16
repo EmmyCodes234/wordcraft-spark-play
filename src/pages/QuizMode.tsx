@@ -1,17 +1,16 @@
-import React, { useState, useEffect, useContext } from "react";
-import DictionaryContext from "@/context/DictionaryContext";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Timer } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Timer, Brain, Target, Award } from "lucide-react";
 
 function getAlphagram(word: string) {
   return word.split("").sort().join("");
 }
 
 export default function QuizMode() {
-  const dictionary = useContext(DictionaryContext);
   const [selectedLength, setSelectedLength] = useState<number | null>(null);
   const [alphagrams, setAlphagrams] = useState<
     { alpha: string; words: string[]; original: string[] }[]
@@ -25,6 +24,23 @@ export default function QuizMode() {
   const [timerMinutes, setTimerMinutes] = useState<number>(5);
   const [timer, setTimer] = useState<number>(300);
   const [progress, setProgress] = useState(100);
+  const [wordSet, setWordSet] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const fetchWords = async () => {
+      try {
+        const response = await fetch("/dictionaries/CSW24.txt");
+        const text = await response.text();
+        const wordsArray = text.split("\n").map((w) => w.trim().toUpperCase());
+        setWordSet(new Set(wordsArray));
+        console.log("CSW24 dictionary loaded with", wordsArray.length, "words");
+      } catch (error) {
+        console.error("Failed to load CSW24 word list:", error);
+      }
+    };
+
+    fetchWords();
+  }, []);
 
   useEffect(() => {
     let interval: any;
@@ -51,11 +67,11 @@ export default function QuizMode() {
   };
 
   const generateAlphagrams = () => {
-    if (!dictionary) return;
+    if (wordSet.size === 0) return;
 
     const wordMap = new Map<string, string[]>();
 
-    dictionary.forEach((word) => {
+    wordSet.forEach((word) => {
       if (selectedLength && word.length === selectedLength) {
         const alpha = getAlphagram(word);
         if (!wordMap.has(alpha)) {
@@ -125,139 +141,236 @@ export default function QuizMode() {
   const score = typedWords.length;
 
   return (
-    <div className="container mx-auto px-4 py-10 space-y-6">
-      <div className="text-center space-y-2">
-        <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent">Wordwalls Quiz</h1>
-        <p className="text-muted-foreground max-w-xl mx-auto">Type all valid anagrams for each alphagram!</p>
-      </div>
-
-      {!alphagrams.length && (
-        <Card className="max-w-3xl mx-auto border shadow-card">
-          <CardContent className="p-6 space-y-4">
-            <Input
-              type="number"
-              placeholder="Timer in minutes (e.g., 5)"
-              value={timerMinutes}
-              onChange={(e) => setTimerMinutes(Number(e.target.value))}
-            />
-            <div className="flex flex-wrap gap-2 justify-center">
-              {[5, 6, 7, 8].map((len) => (
-                <Button
-                  key={len}
-                  variant={selectedLength === len ? "default" : "outline"}
-                  className={`hover:bg-green-700 ${selectedLength === len ? "bg-green-600 text-white" : ""}`}
-                  onClick={() => setSelectedLength(selectedLength === len ? null : len)}
-                >
-                  {len}-letter
-                </Button>
-              ))}
-            </div>
-            <Button
-              disabled={!selectedLength}
-              onClick={generateAlphagrams}
-              className="w-full mt-4 h-12 text-lg font-semibold bg-green-600 hover:bg-green-700 text-white"
-            >
-              Start Quiz
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      {alphagrams.length > 0 && !showResults && (
-        <>
-          <div className="flex justify-between items-center max-w-3xl mx-auto">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Timer className="h-5 w-5" /> {formatTime(timer)}
-            </div>
-            <Progress value={progress} className="w-2/3 rounded-full bg-green-100" />
+    <div className="min-h-screen bg-gradient-subtle">
+      <div className="container mx-auto px-4 py-8 space-y-8">
+        <div className="text-center space-y-4">
+          <div className="flex items-center justify-center gap-4 mb-6">
+            <Brain className="h-12 w-12 text-primary" />
           </div>
+          <h1 className="text-5xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+            Anagram Challenge
+          </h1>
+          <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
+            Test your word skills! Find all valid anagrams for each letter pattern within the time limit.
+          </p>
+        </div>
 
-          <Card className="max-w-3xl mx-auto border shadow-card">
-            <CardContent className="p-4 flex flex-wrap gap-2 justify-center">
-              {alphagrams.map(({ alpha, words }, idx) => (
-                <div
-                  key={idx}
-                  className="px-4 py-2 rounded-full shadow hover:scale-105 transition-all bg-green-100 text-green-800 font-mono text-sm"
-                >
-                  {alpha} ({words.length})
+        {!alphagrams.length && (
+          <Card className="max-w-4xl mx-auto border shadow-elegant">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Target className="h-6 w-6 text-primary" />
+                Quiz Setup
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 space-y-6">
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Timer Duration (minutes)</label>
+                  <Input
+                    type="number"
+                    placeholder="5"
+                    value={timerMinutes}
+                    onChange={(e) => setTimerMinutes(Number(e.target.value))}
+                    className="max-w-xs"
+                    min="1"
+                    max="30"
+                  />
                 </div>
-              ))}
+                
+                <div>
+                  <label className="text-sm font-medium mb-3 block">Word Length</label>
+                  <div className="flex flex-wrap gap-3 justify-center">
+                    {[4, 5, 6, 7, 8].map((len) => (
+                      <Button
+                        key={len}
+                        variant={selectedLength === len ? "default" : "outline"}
+                        className={`transition-all duration-200 ${
+                          selectedLength === len 
+                            ? "bg-gradient-primary text-primary-foreground shadow-glow" 
+                            : "hover:bg-primary/10"
+                        }`}
+                        onClick={() => setSelectedLength(selectedLength === len ? null : len)}
+                      >
+                        {len}-letter words
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              
+              <Button
+                disabled={!selectedLength || wordSet.size === 0}
+                onClick={generateAlphagrams}
+                className="w-full mt-6 h-14 text-lg font-semibold bg-gradient-primary hover:opacity-90 transition-all duration-300"
+              >
+                {wordSet.size === 0 ? (
+                  <>Loading dictionary...</>
+                ) : (
+                  <>
+                    <Award className="mr-2 h-5 w-5" />
+                    Start Challenge
+                  </>
+                )}
+              </Button>
             </CardContent>
           </Card>
+        )}
 
-          <div className="max-w-3xl mx-auto mt-4 flex gap-2">
-            <Input
-              placeholder="Type word and press Enter"
-              value={userInput}
-              onChange={(e) => setUserInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleInput()}
-              className="flex-grow border-2 border-green-600 focus:border-green-700"
-            />
-            <Button onClick={handleInput} className="bg-green-600 hover:bg-green-700 text-white">
-              Submit
-            </Button>
+        {alphagrams.length > 0 && !showResults && (
+          <div className="space-y-6">
+            {/* Timer and Progress */}
+            <Card className="max-w-4xl mx-auto border shadow-elegant">
+              <CardContent className="p-4">
+                <div className="flex justify-between items-center mb-3">
+                  <div className="flex items-center gap-2">
+                    <Timer className="h-5 w-5 text-primary" />
+                    <span className="text-lg font-semibold">{formatTime(timer)}</span>
+                  </div>
+                  <Badge className="bg-gradient-primary text-primary-foreground">
+                    Score: {score}
+                  </Badge>
+                </div>
+                <Progress value={progress} className="h-3 rounded-full" />
+              </CardContent>
+            </Card>
+
+            {/* Alphagrams Display */}
+            <Card className="max-w-6xl mx-auto border shadow-elegant">
+              <CardHeader>
+                <CardTitle className="text-center">Letter Patterns</CardTitle>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="flex flex-wrap gap-3 justify-center">
+                  {alphagrams.map(({ alpha, words }, idx) => (
+                    <Badge
+                      key={idx}
+                      variant="outline"
+                      className="px-4 py-3 text-lg font-mono tracking-wider hover:scale-105 transition-all duration-200 border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-primary/10"
+                    >
+                      {alpha} <span className="text-primary font-bold">({words.length})</span>
+                    </Badge>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Input Section */}
+            <Card className="max-w-4xl mx-auto border shadow-elegant">
+              <CardContent className="p-6">
+                <div className="flex gap-4">
+                  <Input
+                    placeholder="Type your answer and press Enter..."
+                    value={userInput}
+                    onChange={(e) => setUserInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleInput()}
+                    className="flex-1 text-lg p-6 font-mono tracking-wider border-2 border-primary/30 focus:border-primary"
+                    autoFocus
+                  />
+                  <Button 
+                    onClick={handleInput} 
+                    className="px-8 py-6 text-lg bg-gradient-primary hover:opacity-90"
+                  >
+                    Submit
+                  </Button>
+                </div>
+
+                {feedback && (
+                  <div className={`mt-4 text-center text-lg font-semibold py-3 rounded-lg ${feedbackColor}`}>
+                    {feedback}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
+        )}
 
-          {feedback && (
-            <div className={`max-w-3xl mx-auto mt-2 text-center text-white py-2 rounded ${feedbackColor}`}>
-              {feedback}
+        {showResults && (
+          <div className="space-y-8">
+            {/* Results Header */}
+            <Card className="max-w-4xl mx-auto border shadow-elegant">
+              <CardHeader className="text-center">
+                <CardTitle className="text-3xl font-bold">Challenge Complete!</CardTitle>
+                <div className="flex justify-center gap-6 mt-4">
+                  <Badge className="bg-gradient-celebration text-white text-xl px-6 py-3">
+                    🎯 {score} words found
+                  </Badge>
+                  <Badge variant="outline" className="text-lg px-4 py-2">
+                    {Math.round((score / alphagrams.reduce((acc, a) => acc + a.original.length, 0)) * 100)}% accuracy
+                  </Badge>
+                </div>
+              </CardHeader>
+            </Card>
+
+            {/* Detailed Results */}
+            <Card className="max-w-6xl mx-auto border shadow-elegant">
+              <CardHeader>
+                <CardTitle>Detailed Results</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  {alphagrams.map(({ alpha, original }, idx) => {
+                    const correct = original.filter((w) => typedWords.includes(w));
+                    const missed = original.filter((w) => !typedWords.includes(w));
+                    return (
+                      <div key={idx} className="border rounded-lg p-4 space-y-3">
+                        <div className="flex items-center gap-4">
+                          <Badge variant="outline" className="font-mono text-lg px-4 py-2">
+                            {alpha}
+                          </Badge>
+                          <span className="text-sm text-muted-foreground">
+                            {correct.length} of {original.length} found
+                          </span>
+                        </div>
+                        
+                        {correct.length > 0 && (
+                          <div>
+                            <h4 className="text-sm font-medium text-success mb-2">✓ Found:</h4>
+                            <div className="flex flex-wrap gap-2">
+                              {correct.map((w, i) => (
+                                <Badge key={i} className="bg-success text-success-foreground">
+                                  {w}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {missed.length > 0 && (
+                          <div>
+                            <h4 className="text-sm font-medium text-destructive mb-2">✗ Missed:</h4>
+                            <div className="flex flex-wrap gap-2">
+                              {missed.map((w, i) => (
+                                <Badge key={i} variant="destructive">
+                                  {w}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Action Buttons */}
+            <div className="flex justify-center gap-4">
+              <Button
+                onClick={() => {
+                  setAlphagrams([]);
+                  setShowResults(false);
+                  setSelectedLength(null);
+                }}
+                className="bg-gradient-primary hover:opacity-90 px-8 py-4 text-lg"
+              >
+                New Challenge
+              </Button>
             </div>
-          )}
-        </>
-      )}
-
-      {showResults && (
-        <div className="space-y-6 text-center">
-          <h2 className="text-2xl font-bold">Quiz Review</h2>
-          <p className="text-lg">You scored {score} correct words!</p>
-          <div className="overflow-x-auto">
-            <table className="min-w-full border mt-4 text-left bg-white rounded shadow">
-              <thead className="bg-green-600 text-white">
-                <tr>
-                  <th className="border px-3 py-2">Alphagram</th>
-                  <th className="border px-3 py-2">Correct</th>
-                  <th className="border px-3 py-2">Missed</th>
-                </tr>
-              </thead>
-              <tbody>
-                {alphagrams.map(({ alpha, original }, idx) => {
-                  const correct = original.filter((w) => typedWords.includes(w));
-                  const missed = original.filter((w) => !typedWords.includes(w));
-                  return (
-                    <tr key={idx} className={idx % 2 === 0 ? "bg-green-50" : "bg-white"}>
-                      <td className="border px-3 py-2 font-mono">{alpha}</td>
-                      <td className="border px-3 py-2">
-                        <div className="flex flex-wrap gap-1">
-                          {correct.map((w, i) => (
-                            <span key={i} className="px-2 py-1 rounded bg-green-600 text-white">{w}</span>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="border px-3 py-2">
-                        <div className="flex flex-wrap gap-1">
-                          {missed.map((w, i) => (
-                            <span key={i} className="px-2 py-1 rounded bg-red-600 text-white">{w}</span>
-                          ))}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
           </div>
-          <Button
-            onClick={() => {
-              setAlphagrams([]);
-              setShowResults(false);
-              setSelectedLength(null);
-            }}
-            className="bg-green-600 hover:bg-green-700 text-white mt-4"
-          >
-            Back to Setup
-          </Button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
