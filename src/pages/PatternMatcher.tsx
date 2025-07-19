@@ -1,21 +1,36 @@
-import React, { useContext, useState } from "react";
-import DictionaryContext from "@/context/DictionaryContext";
+import React, { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, ChevronDown, ChevronUp } from "lucide-react";
 
-  export default function PatternMatcher() {
-  const dictionary = useContext(DictionaryContext);
+export default function PatternMatcher() {
+  const [dictionary, setDictionary] = useState<Set<string>>(new Set());
   const [pattern, setPattern] = useState("");
   const [sort, setSort] = useState("length-desc");
   const [matches, setMatches] = useState<string[]>([]);
   const [expandedWord, setExpandedWord] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  useEffect(() => {
+    const fetchWords = async () => {
+      try {
+        const response = await fetch("/dictionaries/CSW24.txt");
+        const text = await response.text();
+        const wordsArray = text.split("\n").map((w) => w.trim().toUpperCase());
+        setDictionary(new Set(wordsArray));
+        console.log("CSW24 dictionary loaded with", wordsArray.length, "words");
+      } catch (error) {
+        console.error("Failed to load CSW24 word list:", error);
+      }
+    };
+
+    fetchWords();
+  }, []);
+
   const handleMatch = () => {
-    if (!pattern.trim() || !dictionary) return;
+    if (!pattern.trim() || dictionary.size === 0) return;
     setIsLoading(true);
 
     const regexPattern = "^" + pattern.toUpperCase().replace(/\?/g, ".").replace(/\*/g, ".*") + "$";
@@ -95,7 +110,7 @@ import { Search, ChevronDown, ChevronUp } from "lucide-react";
             </Select>
             <Button
               onClick={handleMatch}
-              disabled={isLoading}
+              disabled={isLoading || dictionary.size === 0}
               className="flex-grow bg-green-600 hover:bg-green-700 text-white"
             >
               {isLoading ? (

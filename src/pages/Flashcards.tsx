@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/context/AuthContext";
@@ -35,6 +35,8 @@ export default function Flashcards() {
   }, [user]);
 
   const markAs = (type: "mastered" | "learning") => {
+    if (currentIndex >= words.length) return;
+    
     setFlipped(true);
     setTimeout(() => {
       setStatus((prev) => [...prev, type]);
@@ -92,16 +94,11 @@ export default function Flashcards() {
         Card {currentIndex + 1} of {words.length}
       </h2>
 
-      <div className={`flip-card w-full max-w-sm h-52 ${flipped ? "flipped" : ""}`}>
-        <div className="flip-card-inner">
-          <div className="flip-card-front flex items-center justify-center text-3xl font-bold bg-gradient-to-br from-green-100 to-green-50 text-green-900 border shadow-glow rounded-xl transition-transform duration-500 ease-smooth">
-            {words[currentIndex]}
-          </div>
-          <div className="flip-card-back flex items-center justify-center text-2xl font-semibold bg-green-500 text-white border shadow-glow rounded-xl transition-transform duration-500 ease-smooth">
-            ✔️ Mastered!
-          </div>
-        </div>
-      </div>
+      <Card className={`w-full max-w-sm h-52 cursor-pointer ${flipped ? "animate-pulse" : ""}`}>
+        <CardContent className="flex items-center justify-center h-full text-3xl font-bold bg-gradient-to-br from-green-100 to-green-50 text-green-900 border shadow-glow rounded-xl">
+          {flipped ? "✔️ Marked!" : words[currentIndex]}
+        </CardContent>
+      </Card>
 
       <div className="flex gap-4">
         <Button

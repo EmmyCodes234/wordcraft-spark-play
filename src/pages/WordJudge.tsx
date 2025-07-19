@@ -5,8 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 
 const WordJudge = () => {
-  const [word, setWord] = useState("");
-  const [result, setResult] = useState<"valid" | "invalid" | null>(null);
+  const [words, setWords] = useState("");
+  const [result, setResult] = useState<"acceptable" | "not-acceptable" | null>(null);
   const [loading, setLoading] = useState(false);
   const [wordSet, setWordSet] = useState<Set<string>>(new Set());
 
@@ -27,22 +27,22 @@ const WordJudge = () => {
   }, []);
 
   const handleJudge = () => {
-    if (!word.trim() || wordSet.size === 0) return;
+    if (!words.trim() || wordSet.size === 0) return;
 
     setLoading(true);
     setResult(null);
 
-    const cleanWord = word.trim().toUpperCase();
+    const wordList = words.trim().toUpperCase().split(/\s+/);
     
     setTimeout(() => {
-      const isValid = wordSet.has(cleanWord);
-      setResult(isValid ? "valid" : "invalid");
+      const allValid = wordList.every(word => wordSet.has(word));
+      setResult(allValid ? "acceptable" : "not-acceptable");
       setLoading(false);
     }, 300);
   };
 
   const handleNewWord = () => {
-    setWord("");
+    setWords("");
     setResult(null);
   };
 
@@ -58,7 +58,7 @@ const WordJudge = () => {
             Word Judge
           </h1>
           <p className="text-muted-foreground max-w-xl mx-auto text-xl">
-            Quick word validation. Enter a word to see if it's acceptable in CSW24.
+            Quick word validation. Enter one or more words (space-separated) to check if they're acceptable in CSW24.
           </p>
         </div>
 
@@ -67,21 +67,20 @@ const WordJudge = () => {
           <CardContent className="p-8 space-y-6">
             <div className="space-y-4">
               <Input
-                value={word}
-                onChange={(e) => setWord(e.target.value)}
-                placeholder="Enter a word..."
+                value={words}
+                onChange={(e) => setWords(e.target.value)}
+                placeholder="Enter words (e.g., 'BED CAT GOAT')..."
                 className="text-2xl p-6 font-mono tracking-wider text-center border-2 focus:border-primary"
                 onKeyPress={(e) => e.key === 'Enter' && handleJudge()}
                 disabled={loading}
-                maxLength={15}
               />
               
               <Button
                 onClick={handleJudge}
-                disabled={loading || wordSet.size === 0 || !word.trim()}
+                disabled={loading || wordSet.size === 0 || !words.trim()}
                 className="w-full py-6 text-xl bg-gradient-primary hover:opacity-90 transition-all duration-300"
               >
-                {loading ? "Judging..." : "Judge Word"}
+                {loading ? "Judging..." : "Judge Words"}
               </Button>
             </div>
 
@@ -96,17 +95,17 @@ const WordJudge = () => {
         {/* Result */}
         {result && (
           <Card className={`max-w-2xl mx-auto border-4 shadow-elegant animate-scale-in ${
-            result === "valid" 
+            result === "acceptable" 
               ? 'border-success bg-success/10 shadow-glow-success' 
               : 'border-destructive bg-destructive/10'
           }`}>
             <CardContent className="p-12 text-center space-y-8">
               <div className="text-4xl font-bold font-mono tracking-wider uppercase">
-                {word}
+                {words}
               </div>
               
               <div className="flex items-center justify-center gap-6">
-                {result === "valid" ? (
+                {result === "acceptable" ? (
                   <>
                     <CheckCircle2 className="h-24 w-24 text-success animate-bounce" />
                     <div className="text-left">
@@ -114,7 +113,7 @@ const WordJudge = () => {
                         ACCEPTABLE
                       </div>
                       <div className="text-xl text-success/80 font-medium">
-                        Valid in CSW24
+                        All words valid in CSW24
                       </div>
                     </div>
                   </>
@@ -126,7 +125,7 @@ const WordJudge = () => {
                         NOT ACCEPTABLE
                       </div>
                       <div className="text-xl text-destructive/80 font-medium">
-                        Not in CSW24
+                        One or more words not in CSW24
                       </div>
                     </div>
                   </>
@@ -138,7 +137,7 @@ const WordJudge = () => {
                 variant="outline"
                 className="text-lg px-8 py-4 border-2"
               >
-                Judge Another Word
+                Judge More Words
               </Button>
             </CardContent>
           </Card>

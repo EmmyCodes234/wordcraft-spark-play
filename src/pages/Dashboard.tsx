@@ -6,6 +6,42 @@ import { AuthContext } from "../context/AuthContext";
 import { CheckCircle } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
+// Word of the Day component
+const WordOfTheDay = () => {
+  const [wordData, setWordData] = useState({ word: "QUIXOTIC", points: 26 });
+
+  useEffect(() => {
+    const getDailyWord = () => {
+      const words = [
+        { word: "QUIXOTIC", points: 26 },
+        { word: "ZEPHYR", points: 23 },
+        { word: "FJORD", points: 18 },
+        { word: "WALTZ", points: 17 },
+        { word: "JUXTAPOSE", points: 27 },
+        { word: "RHYTHM", points: 17 },
+        { word: "SPHINX", points: 18 }
+      ];
+      
+      const today = new Date();
+      const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24));
+      const wordIndex = dayOfYear % words.length;
+      
+      setWordData(words[wordIndex]);
+    };
+
+    getDailyWord();
+  }, []);
+
+  return (
+    <>
+      <p className="text-3xl font-bold text-green-600 uppercase tracking-wider">
+        {wordData.word}
+      </p>
+      <p className="text-gray-500">Points: {wordData.points}</p>
+    </>
+  );
+};
+
 export default function Dashboard() {
   const { user } = useContext(AuthContext);
   const [profileName, setProfileName] = useState<string | null>(null);
@@ -129,10 +165,7 @@ export default function Dashboard() {
               <CheckCircle className="text-green-500" />
               <p className="text-lg font-medium">Word of the Day</p>
             </div>
-            <p className="text-3xl font-bold text-green-600 uppercase tracking-wider">
-              QUIXOTIC
-            </p>
-            <p className="text-gray-500">Points: 26</p>
+            <WordOfTheDay />
             <Button className="mt-2">Study This Word</Button>
           </CardContent>
         </Card>
