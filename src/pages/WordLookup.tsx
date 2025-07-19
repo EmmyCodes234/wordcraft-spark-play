@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Search, CheckCircle, XCircle, Sparkles, Trophy } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import { Celebration } from "@/components/ui/celebration";
 import { WordAnalysis } from "@/components/enhanced/WordAnalysis";
 import { SaveToStudyDeck } from "@/components/enhanced/SaveToStudyDeck";
 import { calculateWordScore } from "@/lib/scrabbleUtils";
+import { defineWord } from "@/lib/defineWord";
 
 const WordLookup = () => {
   const [input, setInput] = useState("");
@@ -16,6 +18,7 @@ const WordLookup = () => {
   const [wordSet, setWordSet] = useState<Set<string>>(new Set());
   const [showCelebration, setShowCelebration] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
+  const [definition, setDefinition] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchWords = async () => {
@@ -29,198 +32,104 @@ const WordLookup = () => {
         console.error("Failed to load CSW24 word list:", error);
       }
     };
-
     fetchWords();
   }, []);
 
-  const handleAnalyze = () => {
-    if (!input.trim() || wordSet.size === 0) return;
-
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setLoading(true);
     setResult(null);
-    setShowAnalysis(false);
+    setDefinition(null);
     setShowCelebration(false);
+    setShowAnalysis(false);
 
-    const words = input.trim().split(/\s+/).map((w) => w.toUpperCase());
-    const allValid = words.every((word) => wordSet.has(word));
-    const totalScore = words.reduce((sum, word) => sum + calculateWordScore(word), 0);
-
-    setTimeout(() => {
-      setResult({ valid: allValid, words, totalScore });
+    const word = input.trim().toUpperCase();
+    if (!wordSet.has(word)) {
+      setResult({ valid: false, words: [], totalScore: 0 });
       setLoading(false);
-      
-      if (allValid) {
-        setShowCelebration(true);
-        setTimeout(() => {
-          setShowCelebration(false);
-          setShowAnalysis(true);
-        }, 1500);
-      }
-    }, 800);
-  };
+      return;
+    }
 
-  const handleNewSearch = () => {
-    setInput("");
-    setResult(null);
-    setShowAnalysis(false);
-    setShowCelebration(false);
+    const letters = word.split("");
+    const anagrams = Array.from(wordSet).filter((w) =>
+      w.length === word.length &&
+      w.split("").sort().join("") === letters.slice().sort().join("") &&
+      w !== word
+    );
+
+    const totalScore = calculateWordScore(word);
+    setResult({ valid: true, words: anagrams, totalScore });
+
+    try {
+      const def = await defineWord(word);
+      setDefinition(def);
+    } catch (err) {
+      console.error("Definition fetch failed:", err);
+    }
+
+    setShowAnalysis(true);
+    setShowCelebration(true);
+    setLoading(false);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-subtle">
-      <div className="container mx-auto px-4 py-8 space-y-8">
-        {/* Header */}
-        <div className="text-center space-y-4">
-          <h1 className="text-5xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-            Word Lookup
-          </h1>
-          <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
-            Enter words separated by spaces to validate them against the CSW24 lexicon and analyze their Scrabble value.
-          </p>
-        </div>
+    <div className="space-y-6">
+      <form onSubmit={handleSubmit} className="flex items-center gap-3">
+        <Input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Enter a word"
+          className="max-w-sm"
+        />
+        <Button type="submit" disabled={loading}>
+          {loading ? "Checking..." : "Check Word"} <Search className="ml-2 h-4 w-4" />
+        </Button>
+      </form>
 
-        {/* Search Form */}
-        <Card className="max-w-4xl mx-auto border shadow-elegant">
+      {result && (
+        <Card className="border-green-500">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Search className="h-6 w-6 text-primary" />
-              Enter Your Play
+              {result.valid ? (
+                <CheckCircle className="text-green-500" />
+              ) : (
+                <XCircle className="text-red-500" />
+              )}
+              {input.trim().toUpperCase()}
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex gap-4">
-              <Input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="e.g., QUIZ JAZZY FYLFOT"
-                className="text-lg p-6 font-mono tracking-wider"
-                onKeyPress={(e) => e.key === 'Enter' && handleAnalyze()}
-                disabled={loading}
-              />
-              <Button
-                onClick={handleAnalyze}
-                disabled={loading || wordSet.size === 0 || !input.trim()}
-                className="px-8 py-6 text-lg bg-gradient-primary hover:opacity-90 transition-all duration-300"
-              >
-                {loading ? (
-                  <>
-                    <Sparkles className="h-5 w-5 mr-2 animate-spin" />
-                    Analyzing...
-                  </>
-                ) : (
-                  <>
-                    <Trophy className="h-5 w-5 mr-2" />
-                    Judge Play
-                  </>
+          <CardContent>
+            {definition && <p className="text-sm italic text-muted-foreground mb-3">{definition}</p>}
+            {result.valid ? (
+              <div className="space-y-3">
+                <p className="text-green-600 font-semibold">
+                  ✅ Valid word — Score: {result.totalScore} points
+                </p>
+                {result.words.length > 0 && (
+                  <div>
+                    <p className="text-sm font-medium mb-1">Anagrams:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {result.words.map((w) => (
+                        <Badge key={w} variant="outline">{w}</Badge>
+                      ))}
+                    </div>
+                  </div>
                 )}
-              </Button>
-            </div>
-
-            {wordSet.size === 0 && (
-              <div className="text-center py-4">
-                <Badge variant="outline" className="animate-pulse">
-                  Loading CSW24 dictionary...
-                </Badge>
+                {showAnalysis && (
+                  <div className="mt-4">
+                    <WordAnalysis words={[input.trim().toUpperCase()]} dictionary={wordSet} animated />
+                    <SaveToStudyDeck word={input.trim().toUpperCase()} />
+                  </div>
+                )}
               </div>
+            ) : (
+              <p className="text-red-600">❌ Not a valid word</p>
             )}
           </CardContent>
         </Card>
+      )}
 
-        {/* Celebration Animation */}
-        {showCelebration && result?.valid && (
-          <Celebration
-            type="correct"
-            title="Valid Play!"
-            message="All words accepted in CSW24"
-            xpGained={result.totalScore}
-            onContinue={() => setShowCelebration(false)}
-            autoClose={true}
-            autoCloseDelay={1500}
-          />
-        )}
-
-        {/* Instant Result */}
-        {result && !showAnalysis && (
-          <Card className={`max-w-4xl mx-auto border-2 shadow-elegant animate-scale-in ${
-            result.valid 
-              ? 'border-success bg-success/5 shadow-glow-success' 
-              : 'border-destructive bg-destructive/5'
-          }`}>
-            <CardContent className="p-8 text-center space-y-6">
-              <div className="text-4xl font-bold font-mono tracking-wider">
-                {result.words.join(" ")}
-              </div>
-              
-              <div className="flex items-center justify-center gap-4">
-                {result.valid ? (
-                  <>
-                    <CheckCircle className="h-16 w-16 text-success animate-bounce" />
-                    <div>
-                      <div className="text-2xl font-bold text-success">VALID PLAY!</div>
-                      <div className="text-lg text-success/80">All words accepted in CSW24</div>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <XCircle className="h-16 w-16 text-destructive animate-pulse" />
-                    <div>
-                      <div className="text-2xl font-bold text-destructive">INVALID PLAY</div>
-                      <div className="text-lg text-destructive/80">One or more words not in CSW24</div>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {result.valid && (
-                <div className="flex items-center justify-center gap-4">
-                  <Badge className="bg-gradient-primary text-primary-foreground text-xl px-6 py-3">
-                    {result.totalScore} total points
-                  </Badge>
-                  {result.words.some(w => w.length >= 7) && (
-                    <Badge className="bg-gradient-celebration text-white text-lg px-4 py-2 animate-pulse-glow">
-                      🎯 Bingo Potential!
-                    </Badge>
-                  )}
-                </div>
-              )}
-
-              <div className="flex justify-center gap-4">
-                <Button onClick={handleNewSearch} variant="outline">
-                  New Search
-                </Button>
-                {result.valid && (
-                  <Button 
-                    onClick={() => setShowAnalysis(true)}
-                    className="bg-gradient-primary hover:opacity-90"
-                  >
-                    View Analysis
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Detailed Analysis */}
-        {showAnalysis && result?.valid && (
-          <div className="max-w-6xl mx-auto space-y-6 animate-fade-in">
-            <div className="flex items-center justify-between">
-              <h2 className="text-3xl font-bold">Detailed Analysis</h2>
-              <Button onClick={handleNewSearch} variant="outline">
-                New Search
-              </Button>
-            </div>
-
-            <SaveToStudyDeck words={result.words} />
-            
-            <WordAnalysis 
-              words={result.words} 
-              dictionary={wordSet}
-              animated={true}
-            />
-          </div>
-        )}
-      </div>
+      {showCelebration && <Celebration />}
     </div>
   );
 };

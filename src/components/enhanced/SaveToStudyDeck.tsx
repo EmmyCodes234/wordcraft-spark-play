@@ -1,157 +1,71 @@
-import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { XPBadge } from '@/components/ui/xp-badge';
-import { BookPlus, CheckCircle, Sparkles } from 'lucide-react';
-import { useAuth } from '@/context/AuthContext';
-import { supabase } from '@/lib/supabaseClient';
-import { useToast } from '@/hooks/use-toast';
 
-interface SaveToStudyDeckProps {
-  words: string[];
-  onSaved?: () => void;
-}
+import React, { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/context/AuthContext";
+import { supabase } from "@/lib/supabaseClient";
+import { toast } from "@/components/ui/use-toast";
 
-export function SaveToStudyDeck({ words, onSaved }: SaveToStudyDeckProps) {
+export function SaveToStudyDeck({ word }: { word: string }) {
   const { user } = useAuth();
-  const { toast } = useToast();
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [deckName, setDeckName] = useState("Default");
 
   const handleSave = async () => {
     if (!user) {
-      toast({
-        title: "Login Required",
-        description: "Please log in to save words to your study deck.",
-        variant: "destructive"
-      });
+      toast({ title: "Not logged in", description: "You must be logged in to save words." });
       return;
     }
 
     setSaving(true);
 
     try {
-      // First, check which words are already in the deck
-      const { data: existingWords } = await supabase
-        .from('cardbox')
-        .select('word')
-        .eq('user_id', user.id)
-        .in('word', words);
+      const { data: deck, error } = await supabase
+        .from("decks")
+        .select("*")
+        .eq("name", deckName)
+        .eq("user_id", user.id)
+        .single();
 
-      const existingWordsList = existingWords?.map(w => w.word) || [];
-      const newWords = words.filter(word => !existingWordsList.includes(word.toUpperCase()));
+      let deckId = deck?.id;
 
-      if (newWords.length === 0) {
-        toast({
-          title: "Already Saved",
-          description: "All these words are already in your study deck!",
-          variant: "default"
-        });
-        setSaving(false);
-        return;
+      if (!deck) {
+        const { data: newDeck, error: deckError } = await supabase
+          .from("decks")
+          .insert({ name: deckName, user_id: user.id })
+          .select()
+          .single();
+
+        if (deckError) throw deckError;
+        deckId = newDeck.id;
       }
 
-      // Save new words
-      const wordsToInsert = newWords.map(word => ({
-        user_id: user.id,
-        word: word.toUpperCase(),
-        status: 'new' as const
-      }));
-
-      const { error } = await supabase
-        .from('cardbox')
-        .insert(wordsToInsert);
-
-      if (error) throw error;
-
-      setSaved(true);
-      
-      toast({
-        title: "Words Saved! 🎉",
-        description: (
-          <div className="flex items-center gap-2">
-            <span>Added {newWords.length} word{newWords.length > 1 ? 's' : ''} to your study deck</span>
-            <XPBadge type="xp" value={newWords.length * 10} size="sm" />
-          </div>
-        )
+      const { error: insertError } = await supabase.from("deck_words").insert({
+        deck_id: deckId,
+        word,
       });
 
-      onSaved?.();
+      if (insertError) throw insertError;
 
-      // Reset saved state after animation
-      setTimeout(() => setSaved(false), 2000);
-
-    } catch (error) {
-      console.error('Error saving words:', error);
-      toast({
-        title: "Save Failed",
-        description: "Failed to save words to your study deck. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setSaving(false);
+      toast({ title: "Word saved", description: `"${word}" added to ${deckName}` });
+    } catch (err) {
+      console.error("Save error:", err);
+      toast({ title: "Error", description: "Could not save the word." });
     }
+
+    setSaving(false);
   };
 
-  if (words.length === 0) return null;
-
   return (
-    <Card className="border border-primary/20 bg-gradient-subtle">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <BookPlus className="h-5 w-5 text-primary" />
-              <span className="font-medium">Save to Study Deck</span>
-            </div>
-            <div className="flex gap-1">
-              {words.map(word => (
-                <Badge key={word} variant="secondary" className="text-xs">
-                  {word}
-                </Badge>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <XPBadge 
-              type="xp" 
-              value={words.length * 10} 
-              label="XP"
-              size="sm" 
-              glowing
-            />
-            
-            <Button
-              onClick={handleSave}
-              disabled={saving || saved}
-              className={`transition-all duration-300 ${
-                saved 
-                  ? 'bg-success hover:bg-success text-success-foreground animate-pulse-glow' 
-                  : 'bg-primary hover:bg-primary/90'
-              }`}
-            >
-              {saved ? (
-                <>
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Saved!
-                </>
-              ) : saving ? (
-                <>
-                  <Sparkles className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <BookPlus className="h-4 w-4 mr-2" />
-                  Save Words
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+    <div className="mt-4 flex gap-3 items-center">
+      <input
+        className="px-2 py-1 border rounded text-sm"
+        value={deckName}
+        onChange={(e) => setDeckName(e.target.value)}
+        placeholder="Deck name"
+      />
+      <Button size="sm" disabled={saving} onClick={handleSave}>
+        {saving ? "Saving..." : "Save to Deck"}
+      </Button>
+    </div>
   );
 }

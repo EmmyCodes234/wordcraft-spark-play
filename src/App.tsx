@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -9,7 +10,6 @@ import Landing from "./pages/Landing";
 import Welcome from "./pages/Welcome";
 import Auth from "./pages/Auth";
 import Onboarding from "./pages/Onboarding";
-import WordLookup from "./pages/WordLookup";
 import WordJudge from "./pages/WordJudge";
 import AnagramSolver from "./pages/AnagramSolver";
 import PatternMatcher from "./pages/PatternMatcher";
@@ -35,31 +35,27 @@ export default function App() {
         <AuthProvider>
           <TooltipProvider>
             <Navbar />
-
-            {/* Responsive page container */}
             <div className="min-h-screen w-full px-4 sm:px-6 md:px-8 py-4">
               <Routes>
                 <Route path="/" element={<Landing />} />
                 <Route path="/welcome" element={<Welcome />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/onboarding" element={<Onboarding />} />
-                <Route path="/lookup" element={<ProtectedRoute element={<WordLookup />} />} />
-                <Route path="/judge" element={<ProtectedRoute element={<WordJudge />} />} />
-                <Route path="/anagram" element={<ProtectedRoute element={<AnagramSolver />} />} />
-                <Route path="/pattern" element={<ProtectedRoute element={<PatternMatcher />} />} />
-                <Route path="/quiz" element={<ProtectedRoute element={<QuizMode />} />} />
-                <Route path="/flashcards" element={<ProtectedRoute element={<Flashcards />} />} />
-                <Route path="/study/:deckId" element={<ProtectedRoute element={<StudyDeck />} />} />
-                <Route path="/dashboard" element={<ProtectedRoute element={<Dashboard />} />} />
-                <Route path="/profile" element={<ProtectedRoute element={<Profile />} />} />
-                <Route path="/settings" element={<ProtectedRoute element={<Settings />} />} />
-                <Route path="/create-challenge" element={<ProtectedRoute element={<CreateChallenge />} />} />
-                <Route path="/play-challenge/:id" element={<ProtectedRoute element={<ChallengePlay />} />} />
-                <Route path="/daily" element={<ProtectedRoute element={<DailyPuzzle />} />} />
+                <Route path="/judge" element={<ProtectedRoute><WordJudge /></ProtectedRoute>} />
+                <Route path="/anagram" element={<ProtectedRoute><AnagramSolver /></ProtectedRoute>} />
+                <Route path="/pattern" element={<ProtectedRoute><PatternMatcher /></ProtectedRoute>} />
+                <Route path="/quiz" element={<ProtectedRoute><QuizMode /></ProtectedRoute>} />
+                <Route path="/flashcards" element={<ProtectedRoute><Flashcards /></ProtectedRoute>} />
+                <Route path="/study/:deckId" element={<ProtectedRoute><StudyDeck /></ProtectedRoute>} />
+                <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+                <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+                <Route path="/create-challenge" element={<ProtectedRoute><CreateChallenge /></ProtectedRoute>} />
+                <Route path="/play-challenge/:id" element={<ProtectedRoute><ChallengePlay /></ProtectedRoute>} />
+                <Route path="/daily" element={<ProtectedRoute><DailyPuzzle /></ProtectedRoute>} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </div>
-
             <Toaster />
             <Sonner />
           </TooltipProvider>
