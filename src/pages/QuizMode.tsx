@@ -6,11 +6,11 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Timer, Brain, Target, Award } from "lucide-react";
 import confetti from "canvas-confetti";
+
 const tickSound = new Audio("/sounds/tick.mp3");
 const endSound = new Audio("/sounds/end.mp3");
 tickSound.volume = 0.05;
 endSound.volume = 0.2;
-
 
 function getAlphagram(word: string) {
   return word.split("").sort().join("");
@@ -18,9 +18,9 @@ function getAlphagram(word: string) {
 
 export default function QuizMode() {
   const [selectedLength, setSelectedLength] = useState<number | null>(null);
-  const [alphagrams, setAlphagrams] = useState<
-    { alpha: string; words: string[]; original: string[] }[]
-  >([]);
+  const [alphagrams, setAlphagrams] = useState<{ alpha: string; words: string[]; original: string[] }[]>([]);
+  // --- FIX 1: Add new state to preserve the original quiz data ---
+  const [initialAlphagrams, setInitialAlphagrams] = useState<{ alpha: string; words: string[]; original: string[] }[]>([]);
   const [userInput, setUserInput] = useState("");
   const [typedWords, setTypedWords] = useState<string[]>([]);
   const [repeatedWords, setRepeatedWords] = useState<string[]>([]);
@@ -44,23 +44,21 @@ export default function QuizMode() {
         console.error("Failed to load CSW24 word list:", error);
       }
     };
-
     fetchWords();
   }, []);
 
   useEffect(() => {
-    let interval: any;
+    let interval: NodeJS.Timeout;
     if (alphagrams.length && !showResults) {
       interval = setInterval(() => {
         setTimer((prev) => {
-          tickSound.play();
-
           if (prev <= 1) {
             clearInterval(interval);
-            endSound.play();
+            endSound.play().catch(e => console.error("Sound play failed:", e));
             setShowResults(true);
             return 0;
           }
+          tickSound.play().catch(e => console.error("Sound play failed:", e));
           setProgress(((prev - 1) / (timerMinutes * 60)) * 100);
           return prev - 1;
         });
@@ -76,12 +74,11 @@ export default function QuizMode() {
   };
 
   const generateAlphagrams = () => {
-    if (wordSet.size === 0) return;
+    if (wordSet.size === 0 || !selectedLength) return;
 
     const wordMap = new Map<string, string[]>();
-
     wordSet.forEach((word) => {
-      if (selectedLength && word.length === selectedLength) {
+      if (word.length === selectedLength) {
         const alpha = getAlphagram(word);
         if (!wordMap.has(alpha)) {
           wordMap.set(alpha, []);
@@ -91,12 +88,14 @@ export default function QuizMode() {
     });
 
     const entries = Array.from(wordMap.entries())
-      .filter(([_, words]) => words.length >= 1)
+      .filter(([, words]) => words.length >= 1)
       .sort(() => 0.5 - Math.random())
       .slice(0, 20)
-      .map(([alpha, words]) => ({ alpha, words: words.slice(), original: words.slice() }));
+      .map(([alpha, words]) => ({ alpha, words: [...words], original: [...words] }));
 
     setAlphagrams(entries);
+    // --- FIX 2: Store a copy of the original questions ---
+    setInitialAlphagrams(entries);
     setUserInput("");
     setTypedWords([]);
     setRepeatedWords([]);
@@ -119,47 +118,46 @@ export default function QuizMode() {
     }
 
     let found = false;
+    let remainingAlphagrams = 0;
     const updatedAlphas = alphagrams
       .map(({ alpha, words, original }) => {
         if (words.includes(inputWord)) {
           found = true;
           const updatedWords = words.filter((w) => w !== inputWord);
+          if (updatedWords.length > 0) remainingAlphagrams++;
           return { alpha, words: updatedWords, original };
         }
+        if (words.length > 0) remainingAlphagrams++;
         return { alpha, words, original };
-      })
-      .filter(({ words }) => words.length > 0);
-
+      });
+    
     if (found) {
       setTypedWords((prev) => [...prev, inputWord]);
       setAlphagrams(updatedAlphas);
       setFeedback("Correct!");
       setFeedbackColor("bg-green-600 animate-bounce");
+      if (remainingAlphagrams === 0) {
+        endSound.play().catch(e => console.error("Sound play failed:", e));
+        setShowResults(true);
+        confetti({ particleCount: 150, spread: 90, origin: { y: 0.6 } });
+      }
     } else {
       setFeedback("Incorrect!");
       setFeedbackColor("bg-red-600 animate-shake");
     }
 
     setUserInput("");
-
-    if (updatedAlphas.length === 0) {
-      endSound.play();
-            setShowResults(true);
-    }
   };
 
-
-  const allCorrectAnswers = alphagrams.flatMap(a => a.original);
-  const uniqueCorrectWords = [...new Set(typedWords)].filter((w) =>
-    allCorrectAnswers.includes(w)
-  );
+  // --- FIX 3: Calculate score using the preserved `initialAlphagrams` state ---
+  const allCorrectAnswers = initialAlphagrams.flatMap(a => a.original);
+  const uniqueCorrectWords = [...new Set(typedWords)].filter((w) => allCorrectAnswers.includes(w));
   const totalCorrectCount = allCorrectAnswers.length;
   const score = uniqueCorrectWords.length;
   const accuracy = totalCorrectCount > 0 ? Math.round((score / totalCorrectCount) * 100) : 0;
 
-
   return (
-    <div className="min-h-screen bg-gradient-subtle">
+    <div className="min-h-screen bg-gradient-subtle dark:bg-background">
       <div className="container mx-auto px-4 py-8 space-y-8">
         <div className="text-center space-y-4">
           <div className="flex items-center justify-center gap-4 mb-6">
@@ -173,7 +171,7 @@ export default function QuizMode() {
           </p>
         </div>
 
-        {!alphagrams.length && (
+        {!alphagrams.length && !showResults && (
           <Card className="max-w-4xl mx-auto border shadow-elegant">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -237,26 +235,12 @@ export default function QuizMode() {
 
         {alphagrams.length > 0 && !showResults && (
           <div className="space-y-6">
-            {/* Timer and Progress */}
             <Card className="max-w-4xl mx-auto border shadow-elegant">
               <CardContent className="p-4">
                 <div className="flex justify-between items-center mb-3">
                   <div className="flex items-center gap-2">
                     <Timer className="h-5 w-5 text-primary" />
-                    <span className="text-lg font-semibold">{formatTime(timer)}
-{alphagrams.length > 0 && !showResults && (
-  <Button
-    variant="destructive"
-    onClick={() => {
-      endSound.play();
-      setShowResults(true);
-    }}
-    className="mt-4"
-  >
-    Give Up
-  </Button>
-)}
-</span>
+                    <span className="text-lg font-semibold">{formatTime(timer)}</span>
                   </div>
                   <Badge className="bg-gradient-primary text-primary-foreground">
                     Score: {score}
@@ -266,7 +250,6 @@ export default function QuizMode() {
               </CardContent>
             </Card>
 
-            {/* Alphagrams Display */}
             <Card className="max-w-6xl mx-auto border shadow-elegant">
               <CardHeader>
                 <CardTitle className="text-center">Letter Patterns</CardTitle>
@@ -286,16 +269,15 @@ export default function QuizMode() {
               </CardContent>
             </Card>
 
-            {/* Input Section */}
             <Card className="max-w-4xl mx-auto border shadow-elegant">
               <CardContent className="p-6">
                 <div className="flex gap-4">
                   <Input
-                    placeholder="Type your answer and press Enter..."
+                    placeholder="TYPE YOUR ANSWER AND PRESS ENTER..."
                     value={userInput}
-                    onChange={(e) => setUserInput(e.target.value)}
+                    onChange={(e) => setUserInput(e.target.value.toUpperCase())}
                     onKeyDown={(e) => e.key === "Enter" && handleInput()}
-                    className="flex-1 text-lg p-6 font-mono tracking-wider border-2 border-primary/30 focus:border-primary"
+                    className="flex-1 text-lg p-6 font-mono tracking-widest uppercase"
                     autoFocus
                   />
                   <Button 
@@ -311,6 +293,18 @@ export default function QuizMode() {
                     {feedback}
                   </div>
                 )}
+                <div className="text-center">
+                    <Button
+                        variant="destructive"
+                        onClick={() => {
+                        endSound.play().catch(e => console.error("Sound play failed:", e));
+                        setShowResults(true);
+                        }}
+                        className="mt-4"
+                    >
+                        Give Up
+                    </Button>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -318,7 +312,6 @@ export default function QuizMode() {
 
         {showResults && (
           <div className="space-y-8">
-            {/* Results Header */}
             <Card className="max-w-4xl mx-auto border shadow-elegant">
               <CardHeader className="text-center">
                 <CardTitle className="text-3xl font-bold">Challenge Complete!</CardTitle>
@@ -333,14 +326,14 @@ export default function QuizMode() {
               </CardHeader>
             </Card>
 
-            {/* Detailed Results */}
             <Card className="max-w-6xl mx-auto border shadow-elegant">
               <CardHeader>
                 <CardTitle>Detailed Results</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
-                  {alphagrams.map(({ alpha, original }, idx) => {
+                  {/* --- FIX 4: Display results using `initialAlphagrams` --- */}
+                  {initialAlphagrams.map(({ alpha, original }, idx) => {
                     const correct = original.filter((w) => typedWords.includes(w));
                     const missed = original.filter((w) => !typedWords.includes(w));
                     return (
@@ -356,10 +349,10 @@ export default function QuizMode() {
                         
                         {correct.length > 0 && (
                           <div>
-                            <h4 className="text-sm font-medium text-success mb-2">✓ Found:</h4>
+                            <h4 className="text-sm font-medium text-green-600 dark:text-green-400 mb-2">✓ Found:</h4>
                             <div className="flex flex-wrap gap-2">
                               {correct.map((w, i) => (
-                                <Badge key={i} className="bg-success text-success-foreground">
+                                <Badge key={i} className="bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300">
                                   {w}
                                 </Badge>
                               ))}
@@ -369,7 +362,7 @@ export default function QuizMode() {
                         
                         {missed.length > 0 && (
                           <div>
-                            <h4 className="text-sm font-medium text-destructive mb-2">✗ Missed:</h4>
+                            <h4 className="text-sm font-medium text-red-600 dark:text-red-400 mb-2">✗ Missed:</h4>
                             <div className="flex flex-wrap gap-2">
                               {missed.map((w, i) => (
                                 <Badge key={i} variant="destructive">
@@ -386,11 +379,12 @@ export default function QuizMode() {
               </CardContent>
             </Card>
 
-            {/* Action Buttons */}
             <div className="flex justify-center gap-4">
               <Button
                 onClick={() => {
                   setAlphagrams([]);
+                  // --- FIX 5: Also clear the initial alphagrams state ---
+                  setInitialAlphagrams([]);
                   setShowResults(false);
                   setSelectedLength(null);
                 }}
