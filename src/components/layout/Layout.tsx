@@ -2,7 +2,8 @@
 
 import React from "react";
 import { Outlet } from "react-router-dom";
-import Navbar from "./Navbar"; // <-- CORRECTED PATH: Assumes Navbar.tsx is in the same folder
+// The import path now correctly uses lowercase "navbar" to match your filename
+import Navbar from "@/components/layout/navbar"; 
 import { AdTicker } from "@/components/ui/AdTicker";
 
 export default function Layout() {
