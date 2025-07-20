@@ -64,9 +64,6 @@ export default function AnagramSolver() {
   const handleQuickLengthFilter = (length: number) => {
     setMinLength(length);
     setMaxLength(length);
-    // Automatically trigger solve when a quick filter is used
-    // This requires a slight modification to handleSolve to ensure it uses the latest state
-    // For simplicity, we can rely on the user to press solve, or trigger it like this:
     setTimeout(() => document.getElementById("solve-button")?.click(), 0);
   };
   
@@ -94,7 +91,6 @@ export default function AnagramSolver() {
     setTimeout(() => {
       let filtered: string[] = Array.from(wordSet);
 
-      // --- Main Anagram/Sub-anagram Filter ---
       if (letters.trim()) {
           const inputLetters = letters.toUpperCase().replace(/[^A-Z?.]/g, "");
           if (allowPartial) {
@@ -114,7 +110,6 @@ export default function AnagramSolver() {
           }
       }
       
-      // --- Advanced Filters Logic ---
       if (startsWith) filtered = filtered.filter(w => w.startsWith(startsWith.toUpperCase()));
       if (endsWith) filtered = filtered.filter(w => w.endsWith(endsWith.toUpperCase()));
       if (contains) filtered = filtered.filter(w => w.includes(contains.toUpperCase()));
@@ -128,11 +123,10 @@ export default function AnagramSolver() {
         filtered = filtered.filter(w => {
             if (w.length === 0) return false;
             const vowelCount = (w.match(/[AEIOU]/g) || []).length;
-            return vowelCount / w.length > 0.6; // Vowel-heavy defined as > 60% vowels
+            return vowelCount / w.length > 0.6;
         });
       }
 
-      // --- Standard Filters ---
       if (minLength) filtered = filtered.filter((w) => w.length >= minLength);
       if (maxLength) filtered = filtered.filter((w) => w.length <= maxLength);
       filtered.sort((a, b) => sortOrder === "asc" ? (a.length === b.length ? a.localeCompare(b) : a.length - b.length) : (a.length === b.length ? a.localeCompare(b) : b.length - a.length));
@@ -223,14 +217,21 @@ export default function AnagramSolver() {
         <div className="container mx-auto px-4 py-8 space-y-8">
           <div className="text-center space-y-2">
             <h1 className="text-4xl sm:text-5xl font-bold bg-gradient-primary bg-clip-text text-transparent">Anagram Solver</h1>
-            <p className="text-muted-foreground max-w-2xl mx-auto text-base sm:text-lg">Find words with the ultimate Study toolkit.</p>
+            <p className="text-muted-foreground max-w-2xl mx-auto text-base sm:text-lg">Find words with the ultimate toolkit.</p>
           </div>
 
           <Card className="max-w-4xl mx-auto border shadow-elegant">
             <CardHeader><CardTitle className="flex items-center gap-2"><Shuffle className="h-6 w-6 text-primary" /> Letter & Word Finder</CardTitle></CardHeader>
             <CardContent className="space-y-6">
               <div className="flex flex-col sm:flex-row gap-4">
-                <Input placeholder="Enter letters (e.g., RETAINS?)" value={letters} onChange={(e) => setLetters(e.target.value)} className="flex-1 text-lg p-6 font-mono tracking-wider" onKeyPress={(e) => e.key === 'Enter' && handleSolve()} disabled={loading} />
+                <Input
+                  placeholder="ENTER LETTERS (E.G., RETAINS?)"
+                  value={letters}
+                  onChange={(e) => setLetters(e.target.value.toUpperCase())}
+                  className="flex-1 text-lg p-6 font-mono tracking-widest uppercase"
+                  onKeyPress={(e) => e.key === 'Enter' && handleSolve()}
+                  disabled={loading}
+                />
                 <Button id="solve-button" onClick={handleSolve} disabled={loading && wordSet.size === 0} className="px-8 py-6 text-lg bg-gradient-primary hover:opacity-90 transition-all duration-300">
                   {loading ? <><LoaderCircle className="h-5 w-5 mr-2 animate-spin" /> Solving...</> : <><Search className="h-5 w-5 mr-2" /> Solve</>}
                 </Button>
@@ -266,13 +267,13 @@ export default function AnagramSolver() {
 
                 <CollapsibleContent className="mt-6 space-y-6 border-t pt-6">
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div className="space-y-2"><Label>Starts With</Label><Input placeholder="E.g., PRE" value={startsWith} onChange={e => setStartsWith(e.target.value)} /></div>
-                        <div className="space-y-2"><Label>Ends With</Label><Input placeholder="E.g., ING" value={endsWith} onChange={e => setEndsWith(e.target.value)} /></div>
-                        <div className="space-y-2"><Label>Contains Substring</Label><Input placeholder="E.g., ZY" value={contains} onChange={e => setContains(e.target.value)} /></div>
+                        <div className="space-y-2"><Label>Starts With</Label><Input placeholder="E.g., PRE" value={startsWith} onChange={e => setStartsWith(e.target.value.toUpperCase())} className="uppercase"/></div>
+                        <div className="space-y-2"><Label>Ends With</Label><Input placeholder="E.g., ING" value={endsWith} onChange={e => setEndsWith(e.target.value.toUpperCase())} className="uppercase"/></div>
+                        <div className="space-y-2"><Label>Contains Substring</Label><Input placeholder="E.g., ZY" value={contains} onChange={e => setContains(e.target.value.toUpperCase())} className="uppercase"/></div>
                     </div>
                      <div className="space-y-2">
                         <Label>Contains All These Letters</Label>
-                        <Input placeholder="E.g., XYZ" value={containsAll} onChange={e => setContainsAll(e.target.value)} />
+                        <Input placeholder="E.g., XYZ" value={containsAll} onChange={e => setContainsAll(e.target.value.toUpperCase())} className="uppercase"/>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-4 border-t">
                         <div className="flex items-center space-x-2"><Switch id="q-no-u" checked={qWithoutU} onCheckedChange={setQWithoutU} /><Label htmlFor="q-no-u">Q without U</Label></div>

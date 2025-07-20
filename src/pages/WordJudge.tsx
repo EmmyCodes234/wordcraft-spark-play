@@ -31,8 +31,8 @@ const WordJudge = () => {
     if (!words.trim() || wordSet.size === 0) return;
     setLoading(true);
     setResult(null);
-    // Split input by spaces to check multiple words at once
-    const wordList = words.trim().toUpperCase().split(/\s+/);
+    // The 'words' state is already uppercase, but we trim and split
+    const wordList = words.trim().split(/\s+/);
     setTimeout(() => {
       const allValid = wordList.every(word => wordSet.has(word));
       setResult(allValid ? "acceptable" : "not-acceptable");
@@ -46,11 +46,11 @@ const WordJudge = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-subtle">
+    <div className="min-h-screen bg-gradient-subtle dark:bg-background">
       <div className="container mx-auto px-4 py-16 space-y-12">
         <div className="text-center space-y-4">
           <Scale className="h-16 w-16 text-primary mx-auto" />
-          <h1 className="text-6xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+          <h1 className="text-5xl md:text-6xl font-bold bg-gradient-primary bg-clip-text text-transparent">
             Word Judge
           </h1>
           <p className="text-muted-foreground text-lg max-w-md mx-auto">
@@ -64,18 +64,20 @@ const WordJudge = () => {
         {dictStatus === "loaded" && (
           <div className="max-w-xl mx-auto space-y-6">
             <Input
-              placeholder="Enter one or more words..."
+              placeholder="ENTER A WORD..."
               value={words}
-              onChange={(e) => setWords(e.target.value)}
+              // --- FIX: Convert input to uppercase on change ---
+              onChange={(e) => setWords(e.target.value.toUpperCase())}
               onKeyPress={(e) => e.key === 'Enter' && handleJudge()}
-              className="text-lg p-6 text-center font-mono tracking-wider"
+              // --- FIX: Added 'uppercase' class for consistent styling ---
+              className="text-lg p-6 text-center font-mono tracking-widest uppercase"
               disabled={loading}
             />
             <div className="flex gap-4 justify-center">
-              <Button onClick={handleJudge} disabled={loading || !words.trim()}>
+              <Button onClick={handleJudge} disabled={loading || !words.trim()} size="lg">
                 {loading ? "Checking..." : "Judge Word(s)"}
               </Button>
-              <Button variant="outline" onClick={handleClear}>Clear</Button>
+              <Button variant="outline" onClick={handleClear} size="lg">Clear</Button>
             </div>
 
             {result && (
