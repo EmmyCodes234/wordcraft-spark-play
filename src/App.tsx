@@ -1,5 +1,3 @@
-// File: src/App.tsx
-
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from '@/context/AuthContext';
@@ -10,8 +8,9 @@ import ProtectedRoute from '@/components/layout/ProtectedRoute';
 
 // --- Public Pages ---
 import Landing from '@/pages/Landing';
-import Login from '@/pages/Login';     // <-- Using your Login page
-import Signup from '@/pages/Signup';   // <-- Using your Signup page
+import Login from '@/pages/Login';
+import Signup from '@/pages/Signup';
+import UpdatePassword from '@/pages/UpdatePassword'; // <-- Import the new page
 
 // --- Protected Pages ---
 import Dashboard from '@/pages/Dashboard';
@@ -34,6 +33,8 @@ function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/update-password" element={<UpdatePassword />} /> {/* <-- Add the new route */}
+
 
           {/* --- Protected Routes --- */}
           {/* All pages inside here are protected and wrapped by the Layout */}
