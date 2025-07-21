@@ -23,13 +23,11 @@ export default function AnagramSolver() {
   const [loading, setLoading] = useState(false);
   const [wordSet, setWordSet] = useState<Set<string>>(new Set());
 
-  // --- Filter States ---
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [minLength, setMinLength] = useState<number | null>(null);
   const [maxLength, setMaxLength] = useState<number | null>(null);
   const [allowPartial, setAllowPartial] = useState(true);
 
-  // --- Advanced Filter States ---
   const [startsWith, setStartsWith] = useState("");
   const [endsWith, setEndsWith] = useState("");
   const [contains, setContains] = useState("");
@@ -38,7 +36,6 @@ export default function AnagramSolver() {
   const [isVowelHeavy, setIsVowelHeavy] = useState(false);
   const [noVowels, setNoVowels] = useState(false);
   
-  // --- Modal & Save States ---
   const [showSavePrompt, setShowSavePrompt] = useState(false);
   const [deckName, setDeckName] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -87,10 +84,8 @@ export default function AnagramSolver() {
     if (wordSet.size === 0) return;
     setLoading(true);
     setResults([]);
-
     setTimeout(() => {
       let filtered: string[] = Array.from(wordSet);
-
       if (letters.trim()) {
           const inputLetters = letters.toUpperCase().replace(/[^A-Z?.]/g, "");
           if (allowPartial) {
@@ -109,7 +104,6 @@ export default function AnagramSolver() {
             }
           }
       }
-      
       if (startsWith) filtered = filtered.filter(w => w.startsWith(startsWith.toUpperCase()));
       if (endsWith) filtered = filtered.filter(w => w.endsWith(endsWith.toUpperCase()));
       if (contains) filtered = filtered.filter(w => w.includes(contains.toUpperCase()));
@@ -126,11 +120,9 @@ export default function AnagramSolver() {
             return vowelCount / w.length > 0.6;
         });
       }
-
       if (minLength) filtered = filtered.filter((w) => w.length >= minLength);
       if (maxLength) filtered = filtered.filter((w) => w.length <= maxLength);
       filtered.sort((a, b) => sortOrder === "asc" ? (a.length === b.length ? a.localeCompare(b) : a.length - b.length) : (a.length === b.length ? a.localeCompare(b) : b.length - a.length));
-      
       setResults(filtered);
       setLoading(false);
     }, 100);
@@ -164,16 +156,16 @@ export default function AnagramSolver() {
     fetchDefinition(word);
   };
   
-  const saveToFlashcards = async () => {
+  const saveAsQuizDeck = async () => {
     if (!user || !deckName.trim() || results.length === 0) {
       alert("Please log in, enter a deck name, and make sure results are available.");
       return;
     }
     const { error } = await supabase.from("flashcard_decks").insert([{ user_id: user.id, name: deckName.trim(), words: results }]);
     if (error) {
-      alert("Failed to save. Try again.");
+      alert("Failed to save deck. Try again.");
     } else {
-      alert("Saved to flashcards!");
+      alert("Quiz Deck saved successfully!");
       setDeckName("");
       setShowSavePrompt(false);
     }
@@ -198,16 +190,23 @@ export default function AnagramSolver() {
   };
 
   const saveToCardbox = async () => {
-    if (!user) {
-      alert("Please log in to save to cardbox.");
+    if (!user || results.length === 0) {
+      alert("Please log in and find words to save.");
       return;
     }
+    const wordsToInsert = results.map(word => ({
+      user_id: user.id,
+      word: word,
+    }));
     try {
-      const { error } = await supabase.from("cardbox").insert([{ words: results, user_id: user.id }]);
-      if (error) alert("Failed to save to cardbox. Please try again.");
-      else alert("Saved to your cardbox!");
+      const { error } = await supabase
+        .from("user_words")
+        .insert(wordsToInsert, { onConflict: 'user_id, word' });
+      if (error) throw error;
+      alert("Saved to your Cardbox for studying!");
     } catch (error) {
-      alert("Failed to save to cardbox. Please try again.");
+      console.error("Error saving to cardbox:", error);
+      alert("Failed to save words. Some may already be in your Cardbox.");
     }
   };
 
@@ -219,96 +218,97 @@ export default function AnagramSolver() {
             <h1 className="text-4xl sm:text-5xl font-bold bg-gradient-primary bg-clip-text text-transparent">Anagram Solver</h1>
             <p className="text-muted-foreground max-w-2xl mx-auto text-base sm:text-lg">Find words with the ultimate toolkit.</p>
           </div>
-
           <Card className="max-w-4xl mx-auto border shadow-elegant">
             <CardHeader><CardTitle className="flex items-center gap-2"><Shuffle className="h-6 w-6 text-primary" /> Letter & Word Finder</CardTitle></CardHeader>
             <CardContent className="space-y-6">
               <div className="flex flex-col sm:flex-row gap-4">
-                <Input
-                  placeholder="ENTER LETTERS (E.G., RETAINS?)"
-                  value={letters}
-                  onChange={(e) => setLetters(e.target.value.toUpperCase())}
-                  className="flex-1 text-lg p-6 font-mono tracking-widest uppercase"
-                  onKeyPress={(e) => e.key === 'Enter' && handleSolve()}
-                  disabled={loading}
-                />
+                <Input placeholder="ENTER LETTERS (E.G., RETAINS?)" value={letters} onChange={(e) => setLetters(e.target.value.toUpperCase())} className="flex-1 text-lg p-6 font-mono tracking-widest uppercase" onKeyPress={(e) => e.key === 'Enter' && handleSolve()} disabled={loading} />
                 <Button id="solve-button" onClick={handleSolve} disabled={loading && wordSet.size === 0} className="px-8 py-6 text-lg bg-gradient-primary hover:opacity-90 transition-all duration-300">
                   {loading ? <><LoaderCircle className="h-5 w-5 mr-2 animate-spin" /> Solving...</> : <><Search className="h-5 w-5 mr-2" /> Solve</>}
                 </Button>
               </div>
-
               <Collapsible>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    <div className="space-y-2">
-                        <Label>Search Type</Label>
-                        <Button variant={allowPartial ? "default" : "outline"} onClick={() => setAllowPartial(!allowPartial)} className="w-full">{allowPartial ? "Anagrams" : "Exact Match"}</Button>
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Min Length</Label>
-                        <Select value={minLength?.toString() || ""} onValueChange={(v) => setMinLength(v ? parseInt(v) : null)}>
-                            <SelectTrigger><SelectValue placeholder="Any" /></SelectTrigger>
-                            <SelectContent>{Array.from({length: 14}, (_, i) => i + 2).map(n => <SelectItem key={n} value={n.toString()}>{n}</SelectItem>)}</SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Max Length</Label>
-                        <Select value={maxLength?.toString() || ""} onValueChange={(v) => setMaxLength(v ? parseInt(v) : null)}>
-                            <SelectTrigger><SelectValue placeholder="Any" /></SelectTrigger>
-                            <SelectContent>{Array.from({length: 14}, (_, i) => i + 2).map(n => <SelectItem key={n} value={n.toString()}>{n}</SelectItem>)}</SelectContent>
-                        </Select>
-                    </div>
-                     <div className="space-y-2">
-                        <Label>Advanced</Label>
-                        <CollapsibleTrigger asChild>
-                            <Button variant="outline" className="w-full"><Filter className="mr-2 h-4 w-4" /> More Filters</Button>
-                        </CollapsibleTrigger>
-                    </div>
+                  <div className="space-y-2">
+                    <Label>Search Type</Label>
+                    <Button variant={allowPartial ? "default" : "outline"} onClick={() => setAllowPartial(!allowPartial)} className="w-full">{allowPartial ? "Anagrams" : "Exact Match"}</Button>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Min Length</Label>
+                    <Select value={minLength?.toString() || ""} onValueChange={(v) => setMinLength(v ? parseInt(v) : null)}>
+                      <SelectTrigger><SelectValue placeholder="Any" /></SelectTrigger>
+                      <SelectContent>{Array.from({length: 14}, (_, i) => i + 2).map(n => <SelectItem key={n} value={n.toString()}>{n}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Max Length</Label>
+                    <Select value={maxLength?.toString() || ""} onValueChange={(v) => setMaxLength(v ? parseInt(v) : null)}>
+                      <SelectTrigger><SelectValue placeholder="Any" /></SelectTrigger>
+                      <SelectContent>{Array.from({length: 14}, (_, i) => i + 2).map(n => <SelectItem key={n} value={n.toString()}>{n}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Advanced</Label>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="outline" className="w-full"><Filter className="mr-2 h-4 w-4" /> More Filters</Button>
+                    </CollapsibleTrigger>
+                  </div>
                 </div>
-
                 <CollapsibleContent className="mt-6 space-y-6 border-t pt-6">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div className="space-y-2"><Label>Starts With</Label><Input placeholder="E.g., PRE" value={startsWith} onChange={e => setStartsWith(e.target.value.toUpperCase())} className="uppercase"/></div>
-                        <div className="space-y-2"><Label>Ends With</Label><Input placeholder="E.g., ING" value={endsWith} onChange={e => setEndsWith(e.target.value.toUpperCase())} className="uppercase"/></div>
-                        <div className="space-y-2"><Label>Contains Substring</Label><Input placeholder="E.g., ZY" value={contains} onChange={e => setContains(e.target.value.toUpperCase())} className="uppercase"/></div>
-                    </div>
-                     <div className="space-y-2">
-                        <Label>Contains All These Letters</Label>
-                        <Input placeholder="E.g., XYZ" value={containsAll} onChange={e => setContainsAll(e.target.value.toUpperCase())} className="uppercase"/>
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-4 border-t">
-                        <div className="flex items-center space-x-2"><Switch id="q-no-u" checked={qWithoutU} onCheckedChange={setQWithoutU} /><Label htmlFor="q-no-u">Q without U</Label></div>
-                        <div className="flex items-center space-x-2"><Switch id="vowel-heavy" checked={isVowelHeavy} onCheckedChange={setIsVowelHeavy} /><Label htmlFor="vowel-heavy">Vowel-Heavy</Label></div>
-                        <div className="flex items-center space-x-2"><Switch id="no-vowels" checked={noVowels} onCheckedChange={setNoVowels} /><Label htmlFor="no-vowels">No Vowels</Label></div>
-                    </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="space-y-2"><Label>Starts With</Label><Input placeholder="E.G., PRE" value={startsWith} onChange={e => setStartsWith(e.target.value.toUpperCase())} className="uppercase"/></div>
+                    <div className="space-y-2"><Label>Ends With</Label><Input placeholder="E.G., ING" value={endsWith} onChange={e => setEndsWith(e.target.value.toUpperCase())} className="uppercase"/></div>
+                    <div className="space-y-2"><Label>Contains Substring</Label><Input placeholder="E.G., ZY" value={contains} onChange={e => setContains(e.target.value.toUpperCase())} className="uppercase"/></div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Contains All These Letters</Label>
+                    <Input placeholder="E.G., XYZ" value={containsAll} onChange={e => setContainsAll(e.target.value.toUpperCase())} className="uppercase"/>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-4 border-t">
+                    <div className="flex items-center space-x-2"><Switch id="q-no-u" checked={qWithoutU} onCheckedChange={setQWithoutU} /><Label htmlFor="q-no-u">Q without U</Label></div>
+                    <div className="flex items-center space-x-2"><Switch id="vowel-heavy" checked={isVowelHeavy} onCheckedChange={setIsVowelHeavy} /><Label htmlFor="vowel-heavy">Vowel-Heavy</Label></div>
+                    <div className="flex items-center space-x-2"><Switch id="no-vowels" checked={noVowels} onCheckedChange={setNoVowels} /><Label htmlFor="no-vowels">No Vowels</Label></div>
+                  </div>
                 </CollapsibleContent>
               </Collapsible>
-              
               <div className="pt-6 border-t">
                 <Label className="text-sm font-medium mb-2 block">Quick Length Filters</Label>
                 <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm" onClick={() => handleQuickLengthFilter(2)}>2 Letters</Button>
-                    <Button variant="outline" size="sm" onClick={() => handleQuickLengthFilter(3)}>3 Letters</Button>
-                    <Button variant="outline" size="sm" onClick={() => handleQuickLengthFilter(7)}>Bingo-7</Button>
-                    <Button variant="outline" size="sm" onClick={() => handleQuickLengthFilter(8)}>Bingo-8</Button>
+                  <Button variant="outline" size="sm" onClick={() => handleQuickLengthFilter(2)}>2 Letters</Button>
+                  <Button variant="outline" size="sm" onClick={() => handleQuickLengthFilter(3)}>3 Letters</Button>
+                  <Button variant="outline" size="sm" onClick={() => handleQuickLengthFilter(7)}>Bingo-7</Button>
+                  <Button variant="outline" size="sm" onClick={() => handleQuickLengthFilter(8)}>Bingo-8</Button>
                 </div>
               </div>
-
+              {results.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-6 border-t">
+                  <Button onClick={saveToCardbox} variant="outline"><Save className="mr-2 h-4 w-4" /> Save to Cardbox</Button>
+                  <Button onClick={exportAsTxt} variant="outline"><FileText className="mr-2 h-4 w-4" /> Export TXT</Button>
+                  <Button onClick={exportAsPdf} variant="outline"><Download className="mr-2 h-4 w-4" /> Export PDF</Button>
+                  <Button onClick={() => setShowSavePrompt(true)} variant="outline">📁 Save as Quiz Deck</Button>
+                  {showSavePrompt && (
+                    <div className="flex gap-2 w-full pt-2">
+                      <Input placeholder="Enter deck name" value={deckName} onChange={(e) => setDeckName(e.target.value)} className="flex-grow" />
+                      <Button onClick={saveAsQuizDeck} variant="default">Save Deck</Button>
+                    </div>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
-            
           {results.length > 0 && (
             <Card className="max-w-7xl mx-auto border shadow-elegant animate-fade-in">
               <CardHeader>
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
-                    <CardTitle>Results ({results.length} words found)</CardTitle>
-                    <div className="flex items-center gap-2">
-                        <Label className="text-sm font-normal">Sort:</Label>
-                        <Button size="sm" variant="ghost" onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}>
-                            {sortOrder === 'asc' ? <SortAsc className="h-4 w-4 mr-1" /> : <SortDesc className="h-4 w-4 mr-1" />}
-                            {sortOrder === 'asc' ? 'Length (Asc)' : 'Length (Desc)'}
-                        </Button>
-                    </div>
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
+                  <CardTitle>Results ({results.length} words found)</CardTitle>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm font-normal">Sort:</Label>
+                    <Button size="sm" variant="ghost" onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}>
+                      {sortOrder === 'asc' ? <SortAsc className="h-4 w-4 mr-1" /> : <SortDesc className="h-4 w-4 mr-1" />}
+                      {sortOrder === 'asc' ? 'Length (Asc)' : 'Length (Desc)'}
+                    </Button>
                   </div>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3">
@@ -335,7 +335,6 @@ export default function AnagramSolver() {
               </CardContent>
             </Card>
           )}
-
           {!loading && results.length === 0 && (letters.trim() || startsWith.trim() || endsWith.trim() || contains.trim()) && (
             <Card className="max-w-4xl mx-auto border shadow-elegant">
               <CardContent className="p-8 text-center space-y-4">
@@ -363,31 +362,14 @@ const DefinitionModal = ({ isOpen, onClose, word, definition, error, isLoading }
   return (
     <AnimatePresence>
       {isOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-        >
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            onClick={(e) => e.stopPropagation()}
-            className="bg-background rounded-lg shadow-xl w-full max-w-lg p-6 relative"
-          >
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} onClick={(e) => e.stopPropagation()} className="bg-background rounded-lg shadow-xl w-full max-w-lg p-6 relative">
             <Button onClick={onClose} variant="ghost" className="absolute top-2 right-2 h-8 w-8 p-0">
               <X className="h-5 w-5" />
             </Button>
             <h2 className="text-2xl font-bold text-primary">{word}</h2>
             <div className="mt-4 min-h-[100px] flex items-center justify-center">
-              {isLoading ? (
-                <LoaderCircle className="w-8 h-8 animate-spin text-primary" />
-              ) : error ? (
-                 <p className="text-red-500 text-center">{error}</p>
-              ) : (
-                definition && (
+              {isLoading ? (<LoaderCircle className="w-8 h-8 animate-spin text-primary" />) : error ? (<p className="text-red-500 text-center">{error}</p>) : (definition && (
                   <div className="space-y-2 text-left">
                     <p className="font-semibold italic text-muted-foreground">{definition.partOfSpeech}</p>
                     <p className="text-base" dangerouslySetInnerHTML={{ __html: definition.text }}></p>
