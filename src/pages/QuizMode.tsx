@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from "react";
+import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Timer, Brain, Target, Award, Layers, X as XIcon } from "lucide-react";
+import { Timer, Brain, Target, Award, Layers, X as XIcon, Settings, BrainCircuit } from "lucide-react";
 import confetti from "canvas-confetti";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
@@ -39,7 +40,7 @@ function getWordsFromDeck(deckWords: string | string[] | null | undefined): stri
 
 
 type Deck = {
-  id: number;
+  id: string; // Changed to string to match Supabase UUID
   name: string;
   words: string | string[];
 };
@@ -77,7 +78,7 @@ export default function QuizMode() {
         if (!user) return;
         const { data, error } = await supabase.from("flashcard_decks").select("id, name, words").eq("user_id", user.id);
         if (error) { console.error("Error fetching decks:", error); } 
-        else { setDecks(data || []); }
+        else { setDecks(data as Deck[] || []); }
     };
     fetchWords();
     fetchDecks();
@@ -128,19 +129,15 @@ export default function QuizMode() {
 
   const startQuiz = (wordsForQuiz: string[]) => {
     if (wordsForQuiz.length === 0) return;
-    
     const wordMap = new Map<string, string[]>();
     wordsForQuiz.forEach((rawWord) => {
       const word = rawWord.trim().toUpperCase();
       if (!word) return;
-
       const alpha = getAlphagram(word);
       if (!wordMap.has(alpha)) { wordMap.set(alpha, []); }
       wordMap.get(alpha)!.push(word);
     });
-
     const entries = Array.from(wordMap.entries()).map(([alpha, words]) => ({ alpha, words: [...words], original: [...words] }));
-   
     setAlphagrams(entries);
     setInitialAlphagrams(entries);
     setUserInput("");
@@ -154,9 +151,7 @@ export default function QuizMode() {
 
   const handleStartConfiguredQuiz = () => {
     if (!configuringDeck) return;
-    
     const allWordsFromDeck = getWordsFromDeck(configuringDeck.words);
-    
     const completeWordMap = new Map<string, string[]>();
     allWordsFromDeck.forEach(word => {
         const alpha = getAlphagram(word);
@@ -165,9 +160,7 @@ export default function QuizMode() {
         }
         completeWordMap.get(alpha)!.push(word);
     });
-
     const shuffledAlphagrams = shuffleArray(Array.from(completeWordMap.keys()));
-    
     let wordsForQuiz: string[] = [];
     for (const alpha of shuffledAlphagrams) {
         const wordsInGroup = completeWordMap.get(alpha)!;
@@ -176,29 +169,24 @@ export default function QuizMode() {
         }
         if(wordsForQuiz.length >= quizWordCount) break;
     }
-
     if (wordsForQuiz.length === 0 && shuffledAlphagrams.length > 0) {
         wordsForQuiz.push(...completeWordMap.get(shuffledAlphagrams[0])!);
     }
-
     startQuiz(wordsForQuiz);
   };
 
   const handleStartRandomQuiz = () => {
     if (wordSet.size === 0 || !selectedLength) return;
     const wordsOfLength = Array.from(wordSet).filter(word => word.length === selectedLength);
-   
     const wordMap = new Map<string, string[]>();
     wordsOfLength.forEach((word) => {
         const alpha = getAlphagram(word);
         if(!wordMap.has(alpha)) wordMap.set(alpha, []);
         wordMap.get(alpha)!.push(word);
     });
-
     const allAlphagramGroups = Array.from(wordMap.entries());
     const shuffledGroups = shuffleArray(allAlphagramGroups).slice(0, 20);
     const entries = shuffledGroups.map(([alpha, words]) => ({ alpha, words: [...words], original: [...words]}));
-   
     startQuiz(entries.flatMap(e => e.words));
   };
  
@@ -214,21 +202,17 @@ export default function QuizMode() {
     }
 
     const targetAlphagram = alphagrams.find(ag => ag.words.includes(inputWord));
-
     if (targetAlphagram) {
       setTypedWords(prev => [...prev, inputWord]);
       setFeedback("Correct!");
       setFeedbackColor("bg-green-500/20 text-green-600");
-
       const updatedAlphas = alphagrams.map(ag => {
         if (ag.alpha === targetAlphagram.alpha) {
           return { ...ag, words: ag.words.filter(w => w !== inputWord) };
         }
         return ag;
       }).filter(ag => ag.words.length > 0);
-
       setAlphagrams(updatedAlphas);
-
       if (updatedAlphas.length === 0) {
         endSound.play().catch(e => console.error("Sound play failed:", e));
         setShowResults(true);
@@ -246,24 +230,44 @@ export default function QuizMode() {
       <div className="container mx-auto px-4 py-8 space-y-8">
         <div className="text-center space-y-4">
           <Brain className="h-12 w-12 text-primary mx-auto" />
-          <h1 className="text-4xl sm:text-5xl font-bold bg-gradient-primary bg-clip-text text-transparent">Anagram Challenge</h1>
-          <p className="text-muted-foreground max-w-2xl mx-auto text-lg">Test your skills by playing a random challenge or quizzing yourself on a saved deck.</p>
+          <h1 className="text-4xl sm:text-5xl font-bold bg-gradient-primary bg-clip-text text-transparent">Study Modes</h1>
+          <p className="text-muted-foreground max-w-2xl mx-auto text-lg">Choose a deck to practice with timed anagram quizzes or spaced repetition flashcards.</p>
         </div>
 
         {!alphagrams.length && !showResults ? (
           <div className="space-y-8">
             <Card className="max-w-4xl mx-auto border shadow-elegant">
-              <CardHeader><CardTitle className="flex items-center gap-2"><Layers className="h-6 w-6 text-primary" /> Practice a Saved Deck</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="flex items-center gap-2"><Layers className="h-6 w-6 text-primary" /> My Decks</CardTitle></CardHeader>
               <CardContent className="p-6">
                 {decks.length > 0 ? (
+                  // --- DECK LIST UPDATED ---
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {decks.map(deck => {
                       const deckWords = getWordsFromDeck(deck.words);
                       return (
-                        <Button key={deck.id} variant="outline" className="h-auto flex flex-col p-4 text-center" onClick={() => { setConfiguringDeck(deck); setQuizWordCount(Math.min(20, deckWords.length)); }}>
-                          <span className="font-semibold">{deck.name}</span>
-                          <span className="text-xs text-muted-foreground">{deckWords.length} words</span>
-                        </Button>
+                        <Card key={deck.id} className="flex flex-col justify-between">
+                            <CardHeader className="text-center p-4">
+                                <CardTitle>{deck.name}</CardTitle>
+                                <p className="text-xs text-muted-foreground">{deckWords.length} words</p>
+                            </CardHeader>
+                            <CardContent className="flex-grow p-4 pt-0">
+                                <Button variant="outline" className="w-full h-full" onClick={() => { setConfiguringDeck(deck); setQuizWordCount(Math.min(20, deckWords.length)); }}>
+                                    <Award className="mr-2 h-4 w-4" /> Anagram Quiz
+                                </Button>
+                            </CardContent>
+                            <CardFooter className="p-4 pt-0 grid grid-cols-5 gap-2">
+                                <Link to={`/flashcards/${deck.id}`} className="col-span-4">
+                                    <Button size="sm" className="w-full">
+                                        <BrainCircuit className="h-4 w-4 mr-2" /> Study
+                                    </Button>
+                                </Link>
+                                <Link to={`/decks/${deck.id}/options`} className="col-span-1">
+                                    <Button size="sm" variant="ghost" className="w-full">
+                                        <Settings className="h-4 w-4" />
+                                    </Button>
+                                </Link>
+                            </CardFooter>
+                        </Card>
                       )
                     })}
                   </div>
@@ -288,7 +292,6 @@ export default function QuizMode() {
                                 <>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div>
-                                            {/* --- UI TEXT UPDATE --- */}
                                             <label className="text-sm font-medium mb-2 block">Number of Words (Approximate)</label>
                                             <Input type="number" value={quizWordCount} onChange={(e) => setQuizWordCount(Math.min(100, deckWords.length, Math.max(1, Number(e.target.value))))} min="1" max={Math.min(100, deckWords.length)} />
                                             <p className="text-xs text-muted-foreground mt-2">

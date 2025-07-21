@@ -10,13 +10,14 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
 
+  // --- MODIFIED navLinks array ---
   const navLinks = [
     { path: "/dashboard", label: "Dashboard" },
     { path: "/judge", label: "Word Judge" },
     { path: "/anagram", label: "Anagram Solver" },
     { path: "/pattern", label: "Pattern Matcher" },
-    { path: "/quiz", label: "Quiz Mode" },
-    { path: "/flashcards", label: "Flashcards" },
+    { path: "/quiz", label: "Study" }, // Renamed from "Quiz Mode"
+    // { path: "/flashcards", label: "Flashcards" }, // Removed this broken link
     { path: "/profile", label: "Profile" },
     { path: "/settings", label: "Settings" },
   ];
@@ -53,7 +54,7 @@ export default function Navbar() {
               key={link.path}
               to={link.path}
               className={cn(
-                "whitespace-nowrap text-sm font-medium px-3 py-1.5 rounded-md hover:bg-muted transition-colors", // <-- FIX ADDED HERE
+                "whitespace-nowrap text-sm font-medium px-3 py-1.5 rounded-md hover:bg-muted transition-colors",
                 location.pathname.startsWith(link.path)
                   ? "text-primary"
                   : "text-muted-foreground"
@@ -94,7 +95,7 @@ export default function Navbar() {
                 to={link.path}
                 onClick={closeMobile}
                 className={cn(
-                  "whitespace-nowrap block text-base font-medium py-2 px-2 rounded-md", // <-- FIX ADDED HERE
+                  "whitespace-nowrap block text-base font-medium py-2 px-2 rounded-md",
                   location.pathname.startsWith(link.path)
                     ? "text-primary bg-muted"
                     : "text-muted-foreground hover:bg-muted"
