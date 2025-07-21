@@ -6,6 +6,8 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Timer, Brain, Target, Award } from "lucide-react";
 import confetti from "canvas-confetti";
+import { useAuth } from "@/context/AuthContext"; // <-- FIX: Import useAuth
+import { supabase } from "@/lib/supabaseClient"; // <-- FIX: Import supabase
 
 const tickSound = new Audio("/sounds/tick.mp3");
 const endSound = new Audio("/sounds/end.mp3");
@@ -17,9 +19,9 @@ function getAlphagram(word: string) {
 }
 
 export default function QuizMode() {
+  const { user } = useAuth(); // <-- FIX: Get the current user
   const [selectedLength, setSelectedLength] = useState<number | null>(null);
   const [alphagrams, setAlphagrams] = useState<{ alpha: string; words: string[]; original: string[] }[]>([]);
-  // --- FIX 1: Add new state to preserve the original quiz data ---
   const [initialAlphagrams, setInitialAlphagrams] = useState<{ alpha: string; words: string[]; original: string[] }[]>([]);
   const [userInput, setUserInput] = useState("");
   const [typedWords, setTypedWords] = useState<string[]>([]);
@@ -67,6 +69,35 @@ export default function QuizMode() {
     return () => clearInterval(interval);
   }, [alphagrams, showResults, timerMinutes]);
 
+  const allPossibleAnswers = initialAlphagrams.flatMap(a => a.original);
+  const uniqueCorrectWords = [...new Set(typedWords)].filter((w) => allPossibleAnswers.includes(w));
+  const totalCorrectCount = allPossibleAnswers.length;
+  const score = uniqueCorrectWords.length;
+  const accuracy = totalCorrectCount > 0 ? Math.round((score / totalCorrectCount) * 100) : 0;
+
+  // --- FIX: New function to save quiz results to the database ---
+  const saveQuizResults = async () => {
+    if (!user || totalCorrectCount === 0) return;
+    try {
+      const { error } = await supabase.from("quiz_results").insert({
+        user_id: user.id,
+        correct: score,
+        total: totalCorrectCount,
+        accuracy: accuracy,
+      });
+      if (error) throw error;
+    } catch (error) {
+      console.error("Error saving quiz results:", error);
+    }
+  };
+
+  // --- FIX: New useEffect to trigger the save when the quiz ends ---
+  useEffect(() => {
+    if (showResults && totalCorrectCount > 0) {
+      saveQuizResults();
+    }
+  }, [showResults]);
+
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60).toString().padStart(2, "0");
     const s = (secs % 60).toString().padStart(2, "0");
@@ -94,7 +125,6 @@ export default function QuizMode() {
       .map(([alpha, words]) => ({ alpha, words: [...words], original: [...words] }));
 
     setAlphagrams(entries);
-    // --- FIX 2: Store a copy of the original questions ---
     setInitialAlphagrams(entries);
     setUserInput("");
     setTypedWords([]);
@@ -148,13 +178,6 @@ export default function QuizMode() {
 
     setUserInput("");
   };
-
-  // --- FIX 3: Calculate score using the preserved `initialAlphagrams` state ---
-  const allCorrectAnswers = initialAlphagrams.flatMap(a => a.original);
-  const uniqueCorrectWords = [...new Set(typedWords)].filter((w) => allCorrectAnswers.includes(w));
-  const totalCorrectCount = allCorrectAnswers.length;
-  const score = uniqueCorrectWords.length;
-  const accuracy = totalCorrectCount > 0 ? Math.round((score / totalCorrectCount) * 100) : 0;
 
   return (
     <div className="min-h-screen bg-gradient-subtle dark:bg-background">
@@ -332,7 +355,6 @@ export default function QuizMode() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">
-                  {/* --- FIX 4: Display results using `initialAlphagrams` --- */}
                   {initialAlphagrams.map(({ alpha, original }, idx) => {
                     const correct = original.filter((w) => typedWords.includes(w));
                     const missed = original.filter((w) => !typedWords.includes(w));
@@ -383,7 +405,6 @@ export default function QuizMode() {
               <Button
                 onClick={() => {
                   setAlphagrams([]);
-                  // --- FIX 5: Also clear the initial alphagrams state ---
                   setInitialAlphagrams([]);
                   setShowResults(false);
                   setSelectedLength(null);
