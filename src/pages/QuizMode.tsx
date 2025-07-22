@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef } from "react"; // Added useRef
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from "react";
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Timer, Brain, Target, Award, Layers, X as XIcon, Settings, BrainCircuit, Loader2 } from "lucide-react"; // Added Loader2
+import { Timer, Brain, Target, Award, Layers, X as XIcon, Settings, BrainCircuit, Loader2, Share2, Trophy, RefreshCw } from "lucide-react";
 import confetti from "canvas-confetti";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
@@ -38,18 +38,21 @@ function getWordsFromDeck(deckWords: string | string[] | null | undefined): stri
     return [];
 }
 
+type AlphagramEntry = { alpha: string; words: string[]; original: string[] };
 
 type Deck = {
     id: string; // Changed to string to match Supabase UUID
     name: string;
     words: string | string[];
+    is_public?: boolean; // Added for checking if public deck
+    user_id?: string; // Added to check deck ownership
 };
 
 export default function QuizMode() {
     const { user } = useAuth();
     const [selectedLength, setSelectedLength] = useState<number | null>(null);
-    const [alphagrams, setAlphagrams] = useState<{ alpha: string; words: string[]; original: string[] }[]>([]);
-    const [initialAlphagrams, setInitialAlphagrams] = useState<{ alpha: string; words: string[]; original: string[] }[]>([]);
+    const [alphagrams, setAlphagrams] = useState<AlphagramEntry[]>([]);
+    const [initialAlphagrams, setInitialAlphagrams] = useState<AlphagramEntry[]>([]);
     const [userInput, setUserInput] = useState("");
     const [typedWords, setTypedWords] = useState<string[]>([]);
     const [feedback, setFeedback] = useState("");
@@ -59,18 +62,25 @@ export default function QuizMode() {
     const [timer, setTimer] = useState<number>(300);
     const [progress, setProgress] = useState(100);
     const [wordSet, setWordSet] = useState<Set<string>>(new Set());
-    const [loadingDictionary, setLoadingDictionary] = useState(true); // New state for loading indicator
-    const [dictionaryError, setDictionaryError] = useState<string | null>(null); // New state for error feedback
+    const [loadingDictionary, setLoadingDictionary] = useState(true);
+    const [dictionaryError, setDictionaryError] = useState<string | null>(null);
     const [decks, setDecks] = useState<Deck[]>([]);
     const [configuringDeck, setConfiguringDeck] = useState<Deck | null>(null);
     const [quizWordCount, setQuizWordCount] = useState<number>(20);
     const [randomQuizWordCount, setRandomQuizWordCount] = useState<number>(20);
 
-    const workerRef = useRef<Worker | null>(null); // Web Worker reference
+    const [isFromPublicDeck, setIsFromPublicDeck] = useState<boolean>(false);
+    const [sourceDeckId, setSourceDeckId] = useState<string | null>(null);
+    const [sourceDeckAllWords, setSourceDeckAllWords] = useState<string[] | null>(null);
+    const [sourceDeckAlphagrams, setSourceDeckAlphagrams] = useState<AlphagramEntry[] | null>(null);
+    const [currentQuizWordLimit, setCurrentQuizWordLimit] = useState<number | null>(null);
 
+    const workerRef = useRef<Worker | null>(null);
+    const location = useLocation();
+    const navigate = useNavigate();
+
+    // Combined useEffect for dictionary loading and initial deck fetching
     useEffect(() => {
-        // Initialize the Web Worker for dictionary loading
-        // Path is relative to src/pages/ where QuizMode.tsx is located
         workerRef.current = new Worker(new URL('../workers/dictionaryWorker.ts', import.meta.url));
 
         workerRef.current.onmessage = (event) => {
@@ -83,26 +93,120 @@ export default function QuizMode() {
             }
         };
 
-        // Start loading the dictionary
-        workerRef.current.postMessage('loadDictionary');
+        workerRef.current.postMessage({ type: 'loadDictionary' });
         setLoadingDictionary(true);
 
-        // Fetch decks (Supabase calls still happen on main thread as they are lightweight network calls)
         const fetchDecks = async () => {
             if (!user) return;
-            const { data, error } = await supabase.from("flashcard_decks").select("id, name, words").eq("user_id", user.id);
+            const { data, error } = await supabase.from("flashcard_decks").select("id, name, words, is_public, user_id").eq("user_id", user.id);
             if (error) { console.error("Error fetching decks:", error); }
             else { setDecks(data as Deck[] || []); }
         };
         fetchDecks();
 
-        // Clean up the worker when the component unmounts
         return () => {
             if (workerRef.current) {
                 workerRef.current.terminate();
             }
         };
-    }, [user]); // Depend on user for deck fetching
+    }, [user]);
+
+    // Effect to handle starting quiz from deckId in URL
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const deckId = params.get('deckId');
+
+        if (deckId && alphagrams.length === 0 && !showResults && !loadingDictionary && !dictionaryError) {
+            const processAndStartDeck = async (deckToProcess: Deck) => {
+                const allWords = getWordsFromDeck(deckToProcess.words);
+                if (allWords.length === 0) {
+                    console.warn(`Deck "${deckToProcess.name}" (ID: ${deckId}) has no words to play.`);
+                    setDictionaryError(`Selected deck "${deckToProcess.name}" is empty.`);
+                    navigate(location.pathname, { replace: true });
+                    return;
+                }
+
+                const wordMap = new Map<string, string[]>();
+                allWords.forEach((rawWord) => {
+                    const word = rawWord.trim().toUpperCase();
+                    if (!word) return;
+                    const alpha = getAlphagram(word);
+                    if (!wordMap.has(alpha)) { wordMap.set(alpha, []); }
+                    wordMap.get(alpha)!.push(word);
+                });
+                const alphagramEntries = Array.from(wordMap.entries()).map(([alpha, words]) => ({ alpha, words: [...words], original: [...words] }));
+                
+                const numAlphagrams = alphagramEntries.length;
+                const dynamicLimit = numAlphagrams >= 100 ? 50 : 20;
+                setCurrentQuizWordLimit(dynamicLimit);
+
+                let wordsForQuiz: string[] = [];
+                const shuffledAlphagrams = shuffleArray(alphagramEntries);
+                let currentWordCount = 0;
+
+                for (const alphaEntry of shuffledAlphagrams) {
+                    if (currentWordCount + alphaEntry.original.length <= dynamicLimit) {
+                        wordsForQuiz.push(...alphaEntry.original);
+                        currentWordCount += alphaEntry.original.length;
+                    }
+                    if (wordsForQuiz.length >= dynamicLimit) break;
+                }
+
+                if (wordsForQuiz.length === 0 && alphagramEntries.length > 0) {
+                    wordsForQuiz.push(...alphagramEntries[0].original);
+                }
+
+                startQuiz(wordsForQuiz, true); // Keep source info for public/URL decks
+                setIsFromPublicDeck(true);
+                setSourceDeckId(deckToProcess.id);
+                setSourceDeckAllWords(allWords);
+                setSourceDeckAlphagrams(alphagramEntries);
+
+                navigate(location.pathname, { replace: true });
+            };
+
+            const findAndStartDeck = async () => {
+                 let deckToPlay = decks.find(d => d.id === deckId); // Try user's own decks first
+                 if (deckToPlay) {
+                     processAndStartDeck(deckToPlay);
+                     return;
+                 }
+
+                 // If not found in user's decks, fetch from database (could be a public deck)
+                 const { data, error: fetchError } = await supabase
+                     .from('flashcard_decks')
+                     .select('id, name, words, is_public, user_id')
+                     .eq('id', deckId)
+                     .single();
+
+                 if (fetchError || !data) {
+                     console.error("Error fetching deck by ID:", fetchError);
+                     setDictionaryError(`Could not load deck with ID: ${deckId}.`);
+                     navigate(location.pathname, { replace: true });
+                     return;
+                 }
+
+                 deckToPlay = data as Deck;
+
+                 // Ensure it's public or belongs to the current user
+                 if (deckToPlay.is_public || (user && deckToPlay.user_id === user.id)) {
+                     processAndStartDeck(deckToPlay);
+                 } else {
+                     setDictionaryError(`Deck with ID: ${deckId} is private.`);
+                     navigate(location.pathname, { replace: true });
+                 }
+            };
+
+            if (decks.length > 0 || !user) { // If decks are loaded or user is not logged in, attempt to find/fetch
+                findAndStartDeck();
+            }
+
+        } else if (deckId && (loadingDictionary || dictionaryError)) {
+             // Do nothing, loading/error state is already shown.
+        } else if (deckId && alphagrams.length > 0) {
+            navigate(location.pathname, { replace: true });
+        }
+    }, [location.search, decks, alphagrams.length, showResults, loadingDictionary, dictionaryError, timerMinutes, navigate, location.pathname, user]);
 
 
     useEffect(() => {
@@ -133,7 +237,7 @@ export default function QuizMode() {
     const saveQuizResults = async () => {
       if (!user || totalCorrectCount === 0) return;
       try {
-        const { error } = await supabase.from("quiz_results").insert({ user_id: user.id, correct: score, total: totalCorrectCount, accuracy: accuracy });
+        const { error } = await supabase.from("quiz_results").insert({ user_id: user.id, correct: score, total: totalCorrectCount, accuracy: accuracy, profile_id: user.id });
         if (error) throw error;
       } catch (error) {
         console.error("Error saving quiz results:", error);
@@ -148,7 +252,8 @@ export default function QuizMode() {
       return `${m}:${s}`;
     };
 
-    const startQuiz = (wordsForQuiz: string[]) => {
+    // --- FIX: startQuiz function now accepts a keepSourceInfo parameter ---
+    const startQuiz = (wordsForQuiz: string[], keepSourceInfo: boolean = false) => {
       if (wordsForQuiz.length === 0) return;
       const wordMap = new Map<string, string[]>();
       wordsForQuiz.forEach((rawWord) => {
@@ -160,7 +265,7 @@ export default function QuizMode() {
       });
       const entries = Array.from(wordMap.entries()).map(([alpha, words]) => ({ alpha, words: [...words], original: [...words] }));
       setAlphagrams(entries);
-      setInitialAlphagrams(entries); // Store the initial set for retries
+      setInitialAlphagrams(entries);
       setUserInput("");
       setTypedWords([]);
       setFeedback("");
@@ -168,7 +273,17 @@ export default function QuizMode() {
       setTimer(timerMinutes * 60);
       setProgress(100);
       setConfiguringDeck(null);
+
+      // --- Conditional reset of source info ---
+      if (!keepSourceInfo) {
+        setIsFromPublicDeck(false);
+        setSourceDeckId(null);
+        setSourceDeckAllWords(null);
+        setSourceDeckAlphagrams(null);
+        setCurrentQuizWordLimit(null);
+      }
     };
+    // --- END FIX ---
 
     const handleStartConfiguredQuiz = () => {
       if (!configuringDeck) return;
@@ -193,11 +308,11 @@ export default function QuizMode() {
       if (wordsForQuiz.length === 0 && shuffledAlphagrams.length > 0) {
           wordsForQuiz.push(...completeWordMap.get(shuffledAlphagrams[0])!);
       }
-      startQuiz(wordsForQuiz);
+      startQuiz(wordsForQuiz, false); // No need to keep source info for configured quiz
     };
 
     const handleStartRandomQuiz = () => {
-        if (wordSet.size === 0 || !selectedLength || loadingDictionary) return; // Disable if dictionary not loaded
+        if (wordSet.size === 0 || !selectedLength || loadingDictionary) return;
         const wordsOfLength = Array.from(wordSet).filter(word => word.length === selectedLength);
         const wordMap = new Map<string, string[]>();
         wordsOfLength.forEach((word) => {
@@ -210,10 +325,10 @@ export default function QuizMode() {
         let currentWordCount = 0;
         const shuffledGroups = shuffleArray(allAlphagramGroups);
 
-        for (const [alpha, words] of shuffledGroups) {
-            if (currentWordCount + words.length <= randomQuizWordCount) {
-                selectedGroups.push([alpha, words]);
-                currentWordCount += words.length;
+        for (const alphaEntry of shuffledGroups) {
+            if (currentWordCount + alphaEntry.original.length <= randomQuizWordCount) {
+                selectedGroups.push(alphaEntry);
+                currentWordCount += alphaEntry.original.length;
             }
             if (currentWordCount >= randomQuizWordCount) break;
         }
@@ -223,7 +338,7 @@ export default function QuizMode() {
         }
 
         const entries = selectedGroups.map(([alpha, words]) => ({ alpha, words: [...words], original: [...words]}));
-        startQuiz(entries.flatMap(e => e.words));
+        startQuiz(entries.flatMap(e => e.words), false); // No need to keep source info for random quiz
     };
 
     const handleRetryQuiz = () => {
@@ -234,7 +349,41 @@ export default function QuizMode() {
         setShowResults(false);
         setTimer(timerMinutes * 60);
         setProgress(100);
+        // sourceDeckId/isFromPublicDeck states are implicitly preserved here because startQuiz is not called.
     };
+
+    // NEW: Handle playing another quiz from the same public deck
+    const handlePlayAnotherFromDeck = () => {
+        console.log("handlePlayAnotherFromDeck called.");
+        console.log("Source Data:", { sourceDeckId, sourceDeckAllWords, sourceDeckAlphagrams, currentQuizWordLimit });
+
+        if (!sourceDeckId || !sourceDeckAllWords || !sourceDeckAlphagrams || currentQuizWordLimit === null) {
+            console.error("Play Another: Missing required source data. Cannot start new quiz from same deck.");
+            setDictionaryError("Missing original deck data. Please try 'New Challenge'."); // Provide user feedback
+            return;
+        }
+
+        let wordsForQuiz: string[] = [];
+        const shuffledAlphagrams = shuffleArray(sourceDeckAlphagrams); // Shuffle original alphagrams again
+        let currentWordCount = 0;
+
+        for (const alphaEntry of shuffledAlphagrams) {
+            if (currentWordCount + alphaEntry.original.length <= currentQuizWordLimit) {
+                wordsForQuiz.push(...alphaEntry.original);
+                currentWordCount += alphaEntry.original.length;
+            }
+            if (wordsForQuiz.length >= currentQuizWordLimit) break;
+        }
+
+        if (wordsForQuiz.length === 0 && sourceDeckAlphagrams.length > 0) {
+            wordsForQuiz.push(...sourceDeckAlphagrams[0].original);
+        }
+        
+        startQuiz(wordsForQuiz, true); // Start a new quiz, and IMPORTANT: keep source info
+        // The sourceDeckId, etc. are implicitly maintained because startQuiz was called with keepSourceInfo = true.
+        console.log("Play Another: New quiz started from same deck.");
+    };
+
 
     const handleInput = () => {
       const inputWord = userInput.toUpperCase().trim();
@@ -283,7 +432,7 @@ export default function QuizMode() {
           {!alphagrams.length && !showResults ? (
             <div className="space-y-8">
               {/* Dictionary Loading Indicator */}
-              {loadingDictionary && (
+              {loadingDictionary ? (
                  <Card className="max-w-4xl mx-auto border shadow-elegant">
                    <CardContent className="p-8 text-center space-y-4">
                      <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto" />
@@ -291,8 +440,7 @@ export default function QuizMode() {
                      <p className="text-muted-foreground">This may take a moment.</p>
                    </CardContent>
                  </Card>
-              )}
-              {dictionaryError && (
+              ) : dictionaryError ? ( // Show error card if dictionary loading failed
                 <Card className="max-w-4xl mx-auto border shadow-elegant">
                   <CardContent className="p-8 text-center space-y-4">
                     <XIcon className="w-12 h-12 text-destructive mx-auto" />
@@ -300,10 +448,21 @@ export default function QuizMode() {
                     <p className="text-muted-foreground">{dictionaryError}. Please try refreshing the page.</p>
                   </CardContent>
                 </Card>
-              )}
-
-              {!loadingDictionary && !dictionaryError && (
+              ) : ( // Show quiz selection options once dictionary is loaded successfully
                 <>
+                  <div className="flex flex-col sm:flex-row justify-center gap-4 max-w-4xl mx-auto">
+                      <Link to="/leaderboard" className="w-full sm:w-auto">
+                          <Button className="w-full h-12 text-lg bg-gradient-primary">
+                              <Trophy className="mr-2 h-5 w-5" /> View Leaderboard
+                          </Button>
+                      </Link>
+                      <Link to="/decks/public" className="w-full sm:w-auto">
+                          <Button className="w-full h-12 text-lg bg-gradient-primary">
+                              <Share2 className="mr-2 h-5 w-5" /> Community Decks
+                          </Button>
+                      </Link>
+                  </div>
+
                   <Card className="max-w-4xl mx-auto border shadow-elegant">
                     <CardHeader><CardTitle className="flex items-center gap-2"><Layers className="h-6 w-6 text-primary" /> My Decks</CardTitle></CardHeader>
                     <CardContent className="p-6">
@@ -322,7 +481,7 @@ export default function QuizMode() {
                                           <Award className="mr-2 h-4 w-4" /> Anagram Quiz
                                       </Button>
                                   </CardContent>
-                                  <CardFooter className="p-4 pt-0 flex flex-col sm:grid sm:grid-cols-5 gap-2"> {/* Responsive button layout */}
+                                  <CardFooter className="p-4 pt-0 flex flex-col sm:grid sm:grid-cols-5 gap-2">
                                       <Link to={`/flashcards/${deck.id}`} className="w-full sm:col-span-4">
                                           <Button size="sm" className="w-full">
                                               <BrainCircuit className="h-4 w-4 mr-2" /> Study
@@ -387,7 +546,7 @@ export default function QuizMode() {
                         <label className="text-sm font-medium mb-3 block">Word Length</label>
                         <div className="flex flex-wrap gap-3">
                           {[4, 5, 6, 7, 8, 9].map((len) => (
-                            <Button key={len} variant={selectedLength === len ? "default" : "outline"} onClick={() => setSelectedLength(selectedLength === len ? null : len)}>
+                            <Button key={len} variant={selectedLength === len ? "default" : "outline"} onClick={() => setSelectedLength(selectedLength === len ? null : len)} disabled={!wordSet.size}>
                               {len}-letter words
                             </Button>
                           ))}
@@ -395,12 +554,12 @@ export default function QuizMode() {
                       </div>
                       <div>
                         <label className="text-sm font-medium mb-2 block">Number of Words (Approximate)</label>
-                        <Input type="number" value={randomQuizWordCount} onChange={(e) => setRandomQuizWordCount(Math.min(100, Math.max(1, Number(e.target.value))))} min="1" max="100" disabled={loadingDictionary} />
+                        <Input type="number" value={randomQuizWordCount} onChange={(e) => setRandomQuizWordCount(Math.min(100, Math.max(1, Number(e.target.value))))} min="1" max="100" disabled={!wordSet.size} />
                         <p className="text-xs text-muted-foreground mt-2">
                           Final count may be higher as all anagrams of selected words are included.
                         </p>
                       </div>
-                      <Button disabled={!selectedLength || loadingDictionary} onClick={handleStartRandomQuiz} className="w-full h-12 text-lg bg-gradient-primary">
+                      <Button disabled={!selectedLength || !wordSet.size} onClick={handleStartRandomQuiz} className="w-full h-12 text-lg bg-gradient-primary">
                           Start Random Challenge
                       </Button>
                     </CardContent>
@@ -426,7 +585,6 @@ export default function QuizMode() {
                 <CardContent className="p-6">
                   <div className="flex flex-wrap gap-3 justify-center">
                     {alphagrams.map(({ alpha, words }, idx) => (
-                      // Reduced padding/font on small screens for alphagram badges
                       <Badge key={idx} variant="outline" className="px-3 py-2 text-base sm:px-4 sm:py-3 sm:text-lg font-mono tracking-wider border-2">
                         {alpha} <span className="text-primary font-bold ml-2">({words.length})</span>
                       </Badge>
@@ -437,8 +595,8 @@ export default function QuizMode() {
               <Card className="max-w-4xl mx-auto border shadow-elegant">
                 <CardContent className="p-6">
                   <div className="flex flex-col sm:flex-row gap-4">
-                    <Input placeholder="TYPE YOUR ANSWER AND PRESS ENTER..." value={userInput} onChange={(e) => setUserInput(e.target.value.toUpperCase())} onKeyDown={(e) => e.key === "Enter" && handleInput()} className="flex-1 text-lg p-4 sm:p-6 font-mono tracking-widest uppercase" autoFocus /> {/* Adjusted input padding */}
-                    <Button onClick={handleInput} className="px-6 py-4 text-lg sm:px-8 sm:py-6 bg-gradient-primary">Submit</Button> {/* Adjusted button padding */}
+                    <Input placeholder="TYPE YOUR ANSWER AND PRESS ENTER..." value={userInput} onChange={(e) => setUserInput(e.target.value.toUpperCase())} onKeyDown={(e) => e.key === "Enter" && handleInput()} className="flex-1 text-lg p-4 sm:p-6 font-mono tracking-widest uppercase" autoFocus />
+                    <Button onClick={handleInput} className="px-6 py-4 text-lg sm:px-8 sm:py-6 bg-gradient-primary">Submit</Button>
                   </div>
                   {feedback && <div className={`mt-4 text-center text-lg font-semibold py-3 rounded-lg ${feedbackColor}`}>{feedback}</div>}
                   <div className="text-center mt-4">
@@ -492,8 +650,13 @@ export default function QuizMode() {
                   </div>
                 </CardContent>
               </Card>
-              <div className="flex flex-col sm:flex-row justify-center gap-4"> {/* Stack buttons on small screens */}
+              <div className="flex flex-col sm:flex-row justify-center gap-4">
                 <Button onClick={handleRetryQuiz} className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 text-lg">Retry Quiz</Button>
+                {isFromPublicDeck && sourceDeckAlphagrams && sourceDeckAlphagrams.length >= 100 && (
+                    <Button onClick={handlePlayAnotherFromDeck} className="bg-gradient-primary px-8 py-4 text-lg">
+                        <RefreshCw className="mr-2 h-5 w-5" /> Play Another From Deck
+                    </Button>
+                )}
                 <Button onClick={() => { setAlphagrams([]); setInitialAlphagrams([]); setShowResults(false); setSelectedLength(null); setConfiguringDeck(null); }} className="bg-gradient-primary px-8 py-4 text-lg">New Challenge</Button>
               </div>
               </div>
