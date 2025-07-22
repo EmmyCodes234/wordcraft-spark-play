@@ -27,6 +27,21 @@ export default function Signup() {
     setLoading(false);
   };
 
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    setMessage("");
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin,
+      },
+    });
+    setLoading(false);
+    if (error) {
+      setMessage(`Error signing up with Google: ${error.message}`);
+    }
+  };
+
   return (
     <div className="relative min-h-screen bg-[#111111] text-gray-100 flex flex-col items-center justify-center p-4">
       <div className="absolute inset-0 z-0 opacity-10">
@@ -74,6 +89,33 @@ export default function Signup() {
               {loading ? "Creating Account..." : "Sign Up"}
             </Button>
           </form>
+
+          {/* --- Google Sign-up Section --- */}
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-gray-700" />
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="bg-[#1a1a1a] px-2 text-gray-400">
+                OR
+              </span>
+            </div>
+          </div>
+
+          <Button
+            onClick={handleGoogleSignIn}
+            disabled={loading}
+            // Using bg-gradient-primary for app branding consistency
+            // text-primary-foreground should provide good contrast (likely white for a dark gradient)
+            className="w-full h-12 text-lg font-semibold bg-gradient-primary text-primary-foreground flex items-center justify-center"
+          >
+            {/* Google logo SVG (white fill for dark backgrounds) */}
+            <svg className="mr-2 h-5 w-5" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M44.5 20H24V28.5H35.6C34.5 31.9 31 34.2 24 34.2C17.3 34.2 11.8 28.7 11.8 22C11.8 15.3 17.3 9.8 24 9.8C27.5 9.8 30.5 11 32.8 13.1L38.7 7.2C34.7 3.4 29.7 1 24 1C10.7 1 0 10.5 0 22C0 33.5 10.7 43 24 43C36.7 43 45.4 34.7 45.4 21.8C45.4 20.9 45.4 20.4 44.5 20Z" fill="#FFFFFF"/>
+            </svg>
+            {loading ? "Signing up..." : "Sign up with Google"}
+          </Button>
+          {/* --- End Google Sign-up Section --- */}
 
           {message && (
             <p className={`text-center text-sm mt-4 ${message.includes("failed") || message.includes("Error") ? "text-red-400" : "text-green-400"}`}>
