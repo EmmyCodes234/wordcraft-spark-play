@@ -16,11 +16,10 @@ export default function Navbar() {
     { path: "/anagram", label: "Anagram Solver" },
     { path: "/pattern", label: "Pattern Matcher" },
     { path: "/quiz", label: "Study" },
-    // --- NEW: Social Features Links ---
+    // --- RE-ADDED: Social Features Links ---
     { path: "/decks/public", label: "Community Decks" }, // Link to browse public decks
     { path: "/leaderboard", label: "Leaderboard" },     // Link to leaderboard
-    // --- END NEW ---
-    // Removed: { path: "/race-lobby", label: "Anagram Race" }, // This line is removed as requested
+    // --- END RE-ADDED ---
     { path: "/profile", label: "Profile" },
     { path: "/settings", label: "Settings" },
   ];
