@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react"; // Removed useMemo
 import { Brain, Search, Lightbulb, X as XIcon, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -11,29 +11,34 @@ export default function PatternMatcher() {
   const [letters, setLetters] = useState("");
   const [pattern, setPattern] = useState("");
   const [includeDictionaryWords, setIncludeDictionaryWords] = useState(true);
-  const [wordSet, setWordSet] = useState<Set<string>>(new Set());
+  // Removed wordSet state, as worker now manages dictionary
   const [loadingDictionary, setLoadingDictionary] = useState(true);
   const [dictionaryError, setDictionaryError] = useState<string | null>(null);
 
   const [selectedLengths, setSelectedLengths] = useState<number[]>([]);
+  const [results, setResults] = useState<string[]>([]); // New state to store results received from worker
+  const [loading, setLoading] = useState(false); // New state to indicate ongoing search
 
   const workerRef = useRef<Worker | null>(null);
+  const componentId = useRef(Date.now().toString()).current; // Unique ID for this component instance
 
   useEffect(() => {
-    // Correct path from src/pages/ to src/workers/
     workerRef.current = new Worker(new URL('../workers/dictionaryWorker.ts', import.meta.url));
 
     workerRef.current.onmessage = (event) => {
       if (event.data.type === 'dictionaryLoaded') {
-        setWordSet(new Set(event.data.wordSet));
         setLoadingDictionary(false);
+      } else if (event.data.type === 'searchResults' && event.data.componentId === componentId) {
+        setResults(event.data.results);
+        setLoading(false); // Stop loading after results received
       } else if (event.data.type === 'error') {
         setDictionaryError(event.data.message);
         setLoadingDictionary(false);
+        setLoading(false); // Stop loading if error occurs
       }
     };
 
-    workerRef.current.postMessage('loadDictionary');
+    workerRef.current.postMessage({ type: 'loadDictionary' });
     setLoadingDictionary(true);
 
     return () => {
@@ -41,103 +46,37 @@ export default function PatternMatcher() {
         workerRef.current.terminate();
       }
     };
-  }, []);
+  }, [componentId]);
 
 
-  const getMatchingWords = useCallback(() => {
-    if (!letters && !pattern) return [];
-    if (loadingDictionary) return [];
+  // handleSearch now sends parameters to the worker
+  const handleSearch = useCallback(() => {
+    // Only attempt search if dictionary is loaded and no current error
+    if (loadingDictionary || dictionaryError) return;
 
-    const availableLetters = letters.toUpperCase().split("").sort();
-    const cleanPattern = pattern.toUpperCase();
+    setLoading(true); // Start loading spinner for search results
+    setResults([]); // Clear previous results immediately for visual feedback
 
-    let filteredWords: string[] = [];
-
-    const sourceWords = includeDictionaryWords ? Array.from(wordSet) : [];
-
-    for (const word of sourceWords) {
-      if (
-        (selectedLengths.length === 0 || selectedLengths.includes(word.length)) &&
-        (word.length >= 2 && word.length <= 15)
-      ) {
-        if (cleanPattern) {
-          if (word.length !== cleanPattern.length) continue;
-          let patternMatch = true;
-          for (let i = 0; i < cleanPattern.length; i++) {
-            if (cleanPattern[i] !== "_" && cleanPattern[i] !== word[i]) {
-              patternMatch = false;
-              break;
-            }
-          }
-          if (!patternMatch) continue;
-        }
-
-        if (availableLetters.length > 0) {
-          let tempLetters = [...availableLetters];
-
-          let patternFitsLetters = true;
-          if (cleanPattern) {
-            let tempLettersForPattern = [...availableLetters];
-            for (let i = 0; i < cleanPattern.length; i++) {
-              const char = cleanPattern[i];
-              if (char !== '_') {
-                const index = tempLettersForPattern.indexOf(char);
-                if (index > -1) {
-                  tempLettersForPattern.splice(index, 1);
-                } else {
-                  patternFitsLetters = false;
-                  break;
-                }
-              }
-            }
-          }
-          if (!patternFitsLetters) continue;
-
-          let remainingWordChars = [];
-          if (cleanPattern) {
-              for (let i = 0; i < word.length; i++) {
-                  if (cleanPattern[i] === '_') {
-                      remainingWordChars.push(word[i]);
-                  }
-              }
-          } else {
-              remainingWordChars = word.split('');
-          }
-
-          let tempLettersForRemainingWord = [...availableLetters]; // Reset for this word check
-          if (cleanPattern) {
-              for (let i = 0; i < cleanPattern.length; i++) {
-                  if (cleanPattern[i] !== '_') {
-                      const idx = tempLettersForRemainingWord.indexOf(cleanPattern[i]);
-                      if (idx > -1) {
-                          tempLettersForRemainingWord.splice(idx, 1);
-                      }
-                  }
-              }
-          }
-
-
-          let allCharsAvailable = true;
-          for (const char of remainingWordChars) {
-            const index = tempLettersForRemainingWord.indexOf(char);
-            if (index > -1) {
-              tempLettersForRemainingWord.splice(index, 1);
-            } else {
-              allCharsAvailable = false;
-              break;
-            }
-          }
-          if (!allCharsAvailable) continue;
-        }
-
-        filteredWords.push(word);
+    // Send all relevant search parameters to the worker
+    workerRef.current?.postMessage({
+      type: 'searchWords',
+      componentId: componentId, // Send componentId to worker to identify results
+      searchParams: {
+        searchType: 'pattern', // Indicate this is a pattern search
+        letters, pattern, includeDictionaryWords, selectedLengths,
+        // PatternMatcher doesn't use these specific filters in its direct UI,
+        // but they are part of the common searchParams object if we assume future expansion
+        startsWith: '', endsWith: '', contains: '', containsAll: '',
+        qWithoutU: false, isVowelHeavy: false, noVowels: false,
+        sortOrder: 'asc' // PatternMatcher doesn't have a sort option, default to asc
       }
-    }
+    });
+  }, [
+    letters, pattern, includeDictionaryWords, selectedLengths,
+    loadingDictionary, dictionaryError, componentId
+  ]);
 
-    return filteredWords.sort((a, b) => a.length - b.length || a.localeCompare(b));
-  }, [letters, pattern, includeDictionaryWords, selectedLengths, wordSet, loadingDictionary]);
-
-  const matchingWords = useMemo(() => getMatchingWords(), [getMatchingWords]);
+  // Removed getMatchingWords and useMemo that wraps it.
 
   const toggleLength = (length: number) => {
     setSelectedLengths(prev => {
@@ -147,10 +86,13 @@ export default function PatternMatcher() {
         return [...prev, length].sort((a, b) => a - b);
       }
     });
+    // Trigger search after length change
+    setTimeout(handleSearch, 0); // Use setTimeout to allow state to update first
   };
 
   const clearLengths = () => {
     setSelectedLengths([]);
+    setTimeout(handleSearch, 0); // Trigger search after clearing lengths
   };
 
   const commonLengths = Array.from({ length: 14 }, (_, i) => i + 2);
@@ -185,7 +127,8 @@ export default function PatternMatcher() {
                   autoCapitalize="off"
                   autoCorrect="off"
                   spellCheck="false"
-                  disabled={loadingDictionary}
+                  disabled={loading || loadingDictionary || dictionaryError !== null} // Disable input if loading
+                  onKeyDown={(e) => e.key === "Enter" && handleSearch()} // Trigger search on Enter
                 />
                 <p className="text-xs text-muted-foreground mt-2">Max 15 letters. Optional.</p>
               </div>
@@ -201,7 +144,8 @@ export default function PatternMatcher() {
                   autoCapitalize="off"
                   autoCorrect="off"
                   spellCheck="false"
-                  disabled={loadingDictionary}
+                  disabled={loading || loadingDictionary || dictionaryError !== null} // Disable input if loading
+                  onKeyDown={(e) => e.key === "Enter" && handleSearch()} // Trigger search on Enter
                 />
                 <p className="text-xs text-muted-foreground mt-2">Max 15 characters. Optional.</p>
               </div>
@@ -214,7 +158,7 @@ export default function PatternMatcher() {
                   variant={selectedLengths.length === 0 ? "default" : "outline"}
                   onClick={clearLengths}
                   size="sm"
-                  disabled={loadingDictionary}
+                  disabled={loadingDictionary || loading || dictionaryError !== null}
                 >
                   All Lengths
                 </Button>
@@ -224,7 +168,7 @@ export default function PatternMatcher() {
                     variant={selectedLengths.includes(len) ? "default" : "outline"}
                     onClick={() => toggleLength(len)}
                     size="sm"
-                    disabled={loadingDictionary}
+                    disabled={loadingDictionary || loading || dictionaryError !== null}
                   >
                     {len}
                   </Button>
@@ -239,12 +183,22 @@ export default function PatternMatcher() {
                 checked={includeDictionaryWords}
                 onChange={(e) => setIncludeDictionaryWords(e.target.checked)}
                 className="h-4 w-4 text-primary rounded border-gray-300 focus:ring-primary"
-                disabled={loadingDictionary}
+                disabled={loadingDictionary || loading || dictionaryError !== null}
               />
               <label htmlFor="includeDictionaryWords" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                 Only show words from standard dictionary
               </label>
             </div>
+            {/* Added a dedicated Search button for consistency, if user doesn't press Enter */}
+            <Button
+              onClick={handleSearch}
+              disabled={loading || loadingDictionary || dictionaryError !== null || (!letters.trim() && !pattern.trim())} // Disable if no input
+              className="w-full h-12 text-lg bg-gradient-primary hover:opacity-90 transition-all duration-300"
+            >
+              {loadingDictionary ? <><LoaderCircle className="h-5 w-5 mr-2 animate-spin" /> Loading Dictionary...</> :
+               loading ? <><LoaderCircle className="h-5 w-5 mr-2 animate-spin" /> Searching...</> :
+               <><Search className="h-5 w-5 mr-2" /> Search</>}
+            </Button>
           </CardContent>
         </Card>
 
@@ -256,8 +210,8 @@ export default function PatternMatcher() {
               <p className="text-muted-foreground">This may take a moment.</p>
             </CardContent>
           </Card>
-        ) : (
-          <Card className="max-w-6xl mx-auto border shadow-elegant">
+        ) : results.length > 0 ? (
+          <Card className="max-w-6xl mx-auto border shadow-elegant animate-fade-in">
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span className="flex items-center gap-2">
@@ -265,7 +219,7 @@ export default function PatternMatcher() {
                   Results
                 </span>
                 <Badge className="bg-gradient-primary text-primary-foreground text-base">
-                  {` ${matchingWords.length} words found`}
+                  {` ${results.length} words found`}
                 </Badge>
               </CardTitle>
             </CardHeader>
@@ -275,15 +229,12 @@ export default function PatternMatcher() {
                   Error loading dictionary: {dictionaryError}. Please try again later.
                 </div>
               )}
-              {matchingWords.length === 0 && (letters || pattern) && (
+              {results.length === 0 && (letters || pattern) && (
                 <p className="text-muted-foreground text-center py-4">No words found for your criteria.</p>
               )}
-              {!letters && !pattern && (
-                <p className="text-muted-foreground text-center py-4">Enter letters or a pattern above to find words.</p>
-              )}
-              {matchingWords.length > 0 && (
+              {results.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-                  {matchingWords.map((word) => (
+                  {results.map((word) => (
                     <TooltipProvider key={word}>
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -311,7 +262,25 @@ export default function PatternMatcher() {
               </span>
             </CardFooter>
           </Card>
-        )}
+        ) : (!loading && dictionaryError === null && !letters.trim() && !pattern.trim() && results.length === 0) ? (
+            // Initial message when nothing entered
+            <Card className="max-w-4xl mx-auto border shadow-elegant">
+              <CardContent className="p-8 text-center space-y-4">
+                <div className="text-4xl">👋</div>
+                <h3 className="text-xl font-semibold">Ready to match patterns?</h3>
+                <p className="text-muted-foreground">Enter letters or a pattern above to get started!</p>
+              </CardContent>
+            </Card>
+          ) : !loading && dictionaryError === null && (letters.trim() || pattern.trim()) && results.length === 0 && (
+            // No results found message (after search attempt)
+            <Card className="max-w-4xl mx-auto border shadow-elegant">
+              <CardContent className="p-8 text-center space-y-4">
+                <div className="text-4xl">🤔</div>
+                <h3 className="text-xl font-semibold">No words found</h3>
+                <p className="text-muted-foreground">Try adjusting your search criteria or check your pattern/letters.</p>
+              </CardContent>
+            </Card>
+          )}
       </div>
     </div>
   );

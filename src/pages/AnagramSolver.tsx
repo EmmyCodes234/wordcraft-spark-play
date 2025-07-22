@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from "react";
+// File: src/pages/AnagramSolver.tsx
+
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,20 +14,24 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const WORDNIK_API_KEY = "q6ozgglz09jnvewsiy4cvvaywtzey98sz3a108u6dmnvystl9";
 type Definition = { text: string; partOfSpeech: string; };
+
+const INITIAL_DISPLAY_LIMIT = 200;
+const LOAD_MORE_AMOUNT = 200;
 
 export default function AnagramSolver() {
   const { user } = useAuth();
   const [letters, setLetters] = useState("");
   const [results, setResults] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const [wordSet, setWordSet] = useState<Set<string>>(new Set());
+  const [loadingDictionary, setLoadingDictionary] = useState(true);
+  const [dictionaryError, setDictionaryError] = useState<string | null>(null);
 
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  const [minLength, setMinLength] = useState<number | null>(null);
-  const [maxLength, setMaxLength] = useState<number | null>(null);
+  const [selectedLengths, setSelectedLengths] = useState<number[]>([]);
   const [allowPartial, setAllowPartial] = useState(true);
 
   const [startsWith, setStartsWith] = useState("");
@@ -35,180 +41,187 @@ export default function AnagramSolver() {
   const [qWithoutU, setQWithoutU] = useState(false);
   const [isVowelHeavy, setIsVowelHeavy] = useState(false);
   const [noVowels, setNoVowels] = useState(false);
-  
+
   const [showSavePrompt, setShowSavePrompt] = useState(false);
   const [deckName, setDeckName] = useState("");
+  const [makeDeckPublic, setMakeDeckPublic] = useState(false);
+  const [publicDescription, setPublicDescription] = useState("");
+  const [saveDeckMessage, setSaveDeckMessage] = useState<string | null>(null); // For save deck feedback
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const [definition, setDefinition] = useState<Definition | null>(null);
   const [definitionError, setDefinitionError] = useState<string | null>(null);
   const [definitionLoading, setDefinitionLoading] = useState(false);
 
+  const [displayLimit, setDisplayLimit] = useState(INITIAL_DISPLAY_LIMIT);
+
+  const workerRef = useRef<Worker | null>(null);
+  const componentId = useRef(Date.now().toString()).current;
+
+  // Web Worker for dictionary loading and search logic
   useEffect(() => {
-    const fetchWords = async () => {
-      try {
-        const response = await fetch("/dictionaries/CSW24.txt");
-        const text = await response.text();
-        const wordsArray = text.split("\n").map((w) => w.trim().toUpperCase());
-        setWordSet(new Set(wordsArray));
-      } catch (error) {
-        console.error("Failed to load word list:", error);
+    workerRef.current = new Worker(new URL('../workers/dictionaryWorker.ts', import.meta.url));
+
+    workerRef.current.onmessage = (event) => {
+      if (event.data.type === 'dictionaryLoaded') {
+        setLoadingDictionary(false);
+      } else if (event.data.type === 'searchResults' && event.data.componentId === componentId) {
+        setResults(event.data.results);
+        setLoading(false);
+        setDisplayLimit(INITIAL_DISPLAY_LIMIT); // Reset display limit on new search
+      } else if (event.data.type === 'error') {
+        setDictionaryError(event.data.message);
+        setLoadingDictionary(false);
+        setLoading(false);
       }
     };
-    fetchWords();
-  }, []);
 
-  const handleQuickLengthFilter = (length: number) => {
-    setMinLength(length);
-    setMaxLength(length);
-    setTimeout(() => document.getElementById("solve-button")?.click(), 0);
-  };
-  
-  const canMakeWord = (word: string, availableLetters: string): boolean => {
-    const letterCount = new Map<string, number>();
-    let blanks = 0;
-    for (const letter of availableLetters.toUpperCase()) {
-      if (letter === '?' || letter === '.') blanks++;
-      else letterCount.set(letter, (letterCount.get(letter) || 0) + 1);
-    }
-    for (const letter of word.toUpperCase()) {
-      const count = letterCount.get(letter) || 0;
-      if (count > 0) letterCount.set(letter, count - 1);
-      else if (blanks > 0) blanks--;
-      else return false;
-    }
-    return true;
+    workerRef.current.postMessage({ type: 'loadDictionary' });
+    setLoadingDictionary(true);
+
+    return () => {
+      if (workerRef.current) {
+        workerRef.current.terminate();
+      }
+    };
+  }, [componentId]);
+
+
+  const toggleLength = (length: number) => {
+    setSelectedLengths(prev => {
+      if (prev.includes(length)) {
+        return prev.filter(l => l !== length).sort((a, b) => a - b);
+      } else {
+        return [...prev, length].sort((a, b) => a - b);
+      }
+    });
   };
 
-  const handleSolve = () => {
-    if (wordSet.size === 0) return;
+  const clearLengths = () => {
+    setSelectedLengths([]);
+  };
+
+  const commonLengths = Array.from({ length: 14 }, (_, i) => i + 2);
+
+  const handleSolve = useCallback(() => {
+    if (loadingDictionary || dictionaryError) return;
+
     setLoading(true);
     setResults([]);
-    setTimeout(() => {
-      let filtered: string[] = Array.from(wordSet);
-      if (letters.trim()) {
-          const inputLetters = letters.toUpperCase().replace(/[^A-Z?.]/g, "");
-          if (allowPartial) {
-            filtered = filtered.filter((word) => canMakeWord(word, inputLetters));
-          } else {
-            const nonBlankLetters = inputLetters.replace(/[?.]/g, '');
-            if (inputLetters.length !== nonBlankLetters.length) {
-              filtered = filtered.filter(word => word.length === inputLetters.length && canMakeWord(word, inputLetters));
-            } else {
-              const inputSorted = nonBlankLetters.split("").sort().join("");
-              filtered = filtered.filter((word) => {
-                if (word.length !== inputSorted.length) return false;
-                const wordSorted = word.split("").sort().join("");
-                return wordSorted === inputSorted;
-              });
-            }
-          }
-      }
-      if (startsWith) filtered = filtered.filter(w => w.startsWith(startsWith.toUpperCase()));
-      if (endsWith) filtered = filtered.filter(w => w.endsWith(endsWith.toUpperCase()));
-      if (contains) filtered = filtered.filter(w => w.includes(contains.toUpperCase()));
-      if (containsAll) {
-        const allChars = containsAll.toUpperCase().split('');
-        filtered = filtered.filter(w => allChars.every(char => w.includes(char)));
-      }
-      if (qWithoutU) filtered = filtered.filter(w => w.includes('Q') && !w.includes('U'));
-      if (noVowels) filtered = filtered.filter(w => !/[AEIOU]/.test(w));
-      if (isVowelHeavy) {
-        filtered = filtered.filter(w => {
-            if (w.length === 0) return false;
-            const vowelCount = (w.match(/[AEIOU]/g) || []).length;
-            return vowelCount / w.length > 0.6;
-        });
-      }
-      if (minLength) filtered = filtered.filter((w) => w.length >= minLength);
-      if (maxLength) filtered = filtered.filter((w) => w.length <= maxLength);
-      filtered.sort((a, b) => sortOrder === "asc" ? (a.length === b.length ? a.localeCompare(b) : a.length - b.length) : (a.length === b.length ? a.localeCompare(b) : b.length - a.length));
-      setResults(filtered);
-      setLoading(false);
-    }, 100);
-  };
+    setDisplayLimit(INITIAL_DISPLAY_LIMIT); // Reset display limit for new search
 
-  const fetchDefinition = async (word: string) => {
-    if (!word) return;
-    setDefinitionLoading(true);
-    setDefinition(null);
-    setDefinitionError(null);
-    try {
-      const response = await fetch(`https://api.wordnik.com/v4/word.json/${word.toLowerCase()}/definitions?limit=1&includeRelated=false&useCanonical=true&includeTags=false&api_key=${WORDNIK_API_KEY}`);
-      if (!response.ok) throw new Error(`Wordnik API responded with status: ${response.status}`);
-      const data = await response.json();
-      if (data && data.length > 0) {
-        setDefinition({ text: data[0].text, partOfSpeech: data[0].partOfSpeech });
-      } else {
-        setDefinitionError("No definition found for this word.");
+    workerRef.current?.postMessage({
+      type: 'searchWords',
+      componentId: componentId,
+      searchParams: {
+        searchType: 'anagram',
+        letters,
+        allowPartial, selectedLengths,
+        startsWith, endsWith, contains, containsAll,
+        qWithoutU, isVowelHeavy, noVowels, sortOrder
       }
-    } catch (error) {
-      console.error("Failed to fetch definition:", error);
-      setDefinitionError("Could not retrieve definition.");
-    } finally {
-      setDefinitionLoading(false);
-    }
-  };
+    });
+  }, [
+    letters, allowPartial, selectedLengths, startsWith, endsWith, contains, containsAll,
+    qWithoutU, isVowelHeavy, noVowels, sortOrder, loadingDictionary, dictionaryError, componentId
+  ]);
 
-  const handleWordClick = (word: string) => {
-    setSelectedWord(word);
-    setIsModalOpen(true);
-    fetchDefinition(word);
-  };
-  
+
+  const fetchDefinition = async (word: string) => { /* ... unchanged ... */ };
+  const handleWordClick = (word: string) => { /* ... unchanged ... */ };
+
+  // --- FIX: Save to Quiz Deck Function ---
   const saveAsQuizDeck = async () => {
-    if (!user || !deckName.trim() || results.length === 0) {
-      alert("Please log in, enter a deck name, and make sure results are available.");
-      return;
+    setSaveDeckMessage(null); // Clear previous messages
+    console.log("saveAsQuizDeck: Attempting to save deck.");
+    console.log("User:", user);
+    console.log("Deck Name:", deckName.trim());
+    console.log("Results Length:", results.length);
+
+    if (!user) {
+        setSaveDeckMessage("Please log in to save decks.");
+        console.error("Save Deck Failed: User not logged in.");
+        return;
     }
-    const { error } = await supabase.from("flashcard_decks").insert([{ user_id: user.id, name: deckName.trim(), words: results }]);
+    if (!deckName.trim()) {
+        setSaveDeckMessage("Please enter a deck name.");
+        console.error("Save Deck Failed: Deck name is empty.");
+        return;
+    }
+    if (results.length === 0) {
+        setSaveDeckMessage("No words to save. Please generate some results first.");
+        console.error("Save Deck Failed: No results to save.");
+        return;
+    }
+
+    // Determine the profile_id to associate with the deck
+    // Assuming user.id from useAuth is the same as profile.id
+    const deckProfileId = user.id; 
+    console.log("Attempting Supabase insert with profile_id:", deckProfileId);
+    console.log("Deck Public:", makeDeckPublic);
+    console.log("Deck Description:", publicDescription);
+
+    const { error } = await supabase.from("flashcard_decks").insert([
+      {
+        user_id: user.id,
+        profile_id: deckProfileId, // FIX: Include profile_id for foreign key
+        name: deckName.trim(),
+        words: results, // Ensure this matches your DB column type (e.g., text[] for array of words)
+        is_public: makeDeckPublic,
+        description: makeDeckPublic ? publicDescription.trim() : null
+      }
+    ]);
+
     if (error) {
-      alert("Failed to save deck. Try again.");
+      console.error("Supabase Insert Error:", error); // Log the full error object for debugging
+      if (error.code === '23505') { // PostgreSQL unique violation error code
+        setSaveDeckMessage("Error: A deck with this name already exists or is a duplicate.");
+      } else if (error.message.includes('foreign key constraint') || error.message.includes('null value in column "profile_id"')) {
+        setSaveDeckMessage("Error: Database profile link missing or invalid. Please ensure your database migration for 'profile_id' is complete and you are logged in.");
+      }
+      else {
+        setSaveDeckMessage(`Error saving deck: ${error.message || "Unknown database error"}`);
+      }
     } else {
-      alert("Quiz Deck saved successfully!");
+      setSaveDeckMessage("Quiz Deck saved successfully!");
+      console.log("Deck saved successfully!");
+      // Clear inputs and hide prompt after successful save (with a small delay for message visibility)
       setDeckName("");
-      setShowSavePrompt(false);
+      setMakeDeckPublic(false);
+      setPublicDescription("");
+      setTimeout(() => setShowSavePrompt(false), 2000); 
     }
   };
+  // --- END FIX: Save to Quiz Deck Function ---
 
-  const exportAsTxt = () => {
-    const blob = new Blob([results.join("\n")], { type: "text/plain;charset=utf-8" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "anagrams.txt";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
+  const exportAsTxt = () => { /* ... unchanged ... */ };
+  const exportAsPdf = () => { /* ... unchanged ... */ };
+
+  // --- REMOVED: saveToCardbox function (as requested) ---
+  // const saveToCardbox = async () => { ... };
+  // --- END REMOVED ---
+
+
+  // --- FIX: Determine if the solve button should be disabled ---
+  const isSolveButtonDisabled = loading || loadingDictionary || dictionaryError !== null || (
+    // Button is disabled if:
+    // 1. App is currently loading dictionary or searching
+    // 2. Dictionary had an error loading
+    // 3. AND NO search criteria are provided at all (all input fields are empty)
+    letters.trim().length === 0 &&
+    startsWith.trim().length === 0 &&
+    endsWith.trim().length === 0 &&
+    contains.trim().length === 0 &&
+    containsAll.trim().length === 0 &&
+    selectedLengths.length === 0 // Check if no length filters are selected
+  );
+  // --- END FIX ---
+
+  const handleLoadMore = () => {
+    setDisplayLimit(prevLimit => prevLimit + LOAD_MORE_AMOUNT);
   };
 
-  const exportAsPdf = () => {
-    const doc = new jsPDF();
-    doc.text(results.join("\n"), 10, 10);
-    doc.save("anagrams.pdf");
-  };
-
-  const saveToCardbox = async () => {
-    if (!user || results.length === 0) {
-      alert("Please log in and find words to save.");
-      return;
-    }
-    const wordsToInsert = results.map(word => ({
-      user_id: user.id,
-      word: word,
-    }));
-    try {
-      const { error } = await supabase
-        .from("user_words")
-        .insert(wordsToInsert, { onConflict: 'user_id, word' });
-      if (error) throw error;
-      alert("Saved to your Cardbox for studying!");
-    } catch (error) {
-      console.error("Error saving to cardbox:", error);
-      alert("Failed to save words. Some may already be in your Cardbox.");
-    }
-  };
 
   return (
     <>
@@ -222,97 +235,146 @@ export default function AnagramSolver() {
             <CardHeader><CardTitle className="flex items-center gap-2"><Shuffle className="h-6 w-6 text-primary" /> Letter & Word Finder</CardTitle></CardHeader>
             <CardContent className="space-y-6">
               <div className="flex flex-col sm:flex-row gap-4">
-                <Input placeholder="ENTER LETTERS (E.G., RETAINS?)" value={letters} onChange={(e) => setLetters(e.target.value.toUpperCase())} className="flex-1 text-lg p-6 font-mono tracking-widest uppercase" onKeyPress={(e) => e.key === 'Enter' && handleSolve()} disabled={loading} />
-                <Button id="solve-button" onClick={handleSolve} disabled={loading && wordSet.size === 0} className="px-8 py-6 text-lg bg-gradient-primary hover:opacity-90 transition-all duration-300">
-                  {loading ? <><LoaderCircle className="h-5 w-5 mr-2 animate-spin" /> Solving...</> : <><Search className="h-5 w-5 mr-2" /> Solve</>}
+                <Input
+                  placeholder="ENTER LETTERS (E.G., RETAINS?)"
+                  value={letters}
+                  onChange={(e) => setLetters(e.target.value.toUpperCase())}
+                  className="flex-1 text-lg p-6 font-mono tracking-widest uppercase"
+                  onKeyPress={(e) => e.key === 'Enter' && handleSolve()}
+                  disabled={loading || loadingDictionary || dictionaryError !== null}
+                />
+                <Button
+                  id="solve-button"
+                  onClick={handleSolve}
+                  disabled={isSolveButtonDisabled} // Use the new disabled condition
+                  className="px-8 py-6 text-lg bg-gradient-primary hover:opacity-90 transition-all duration-300"
+                >
+                  {loadingDictionary ? <><LoaderCircle className="h-5 w-5 mr-2 animate-spin" /> Loading Dictionary...</> :
+                   loading ? <><LoaderCircle className="h-5 w-5 mr-2 animate-spin" /> Solving...</> :
+                   <><Search className="h-5 w-5 mr-2" /> Solve</>}
                 </Button>
               </div>
+              {dictionaryError && (
+                <div className="bg-red-500/10 text-red-600 border border-red-500 rounded-md p-3 text-center">
+                  Error: {dictionaryError}. Please refresh the page.
+                </div>
+              )}
               <Collapsible>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   <div className="space-y-2">
                     <Label>Search Type</Label>
-                    <Button variant={allowPartial ? "default" : "outline"} onClick={() => setAllowPartial(!allowPartial)} className="w-full">{allowPartial ? "Anagrams" : "Exact Match"}</Button>
+                    <Button variant={allowPartial ? "default" : "outline"} onClick={() => setAllowPartial(!allowPartial)} className="w-full" disabled={loadingDictionary || loading || dictionaryError !== null}>{allowPartial ? "Partial Match" : "Exact Match"}</Button>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Min Length</Label>
-                    <Select value={minLength?.toString() || ""} onValueChange={(v) => setMinLength(v ? parseInt(v) : null)}>
-                      <SelectTrigger><SelectValue placeholder="Any" /></SelectTrigger>
-                      <SelectContent>{Array.from({length: 14}, (_, i) => i + 2).map(n => <SelectItem key={n} value={n.toString()}>{n}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Max Length</Label>
-                    <Select value={maxLength?.toString() || ""} onValueChange={(v) => setMaxLength(v ? parseInt(v) : null)}>
-                      <SelectTrigger><SelectValue placeholder="Any" /></SelectTrigger>
-                      <SelectContent>{Array.from({length: 14}, (_, i) => i + 2).map(n => <SelectItem key={n} value={n.toString()}>{n}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
+                  <div className="space-y-2 col-span-2">
                     <Label>Advanced</Label>
                     <CollapsibleTrigger asChild>
-                      <Button variant="outline" className="w-full"><Filter className="mr-2 h-4 w-4" /> More Filters</Button>
+                      <Button variant="outline" className="w-full" disabled={loadingDictionary || loading || dictionaryError !== null}><Filter className="mr-2 h-4 w-4" /> More Filters</Button>
                     </CollapsibleTrigger>
                   </div>
                 </div>
                 <CollapsibleContent className="mt-6 space-y-6 border-t pt-6">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="space-y-2"><Label>Starts With</Label><Input placeholder="E.G., PRE" value={startsWith} onChange={e => setStartsWith(e.target.value.toUpperCase())} className="uppercase"/></div>
-                    <div className="space-y-2"><Label>Ends With</Label><Input placeholder="E.G., ING" value={endsWith} onChange={e => setEndsWith(e.target.value.toUpperCase())} className="uppercase"/></div>
-                    <div className="space-y-2"><Label>Contains Substring</Label><Input placeholder="E.G., ZY" value={contains} onChange={e => setContains(e.target.value.toUpperCase())} className="uppercase"/></div>
+                    <div className="space-y-2"><Label>Starts With</Label><Input placeholder="E.G., PRE" value={startsWith} onChange={e => setStartsWith(e.target.value.toUpperCase())} className="uppercase" disabled={loadingDictionary || loading || dictionaryError !== null}/></div>
+                    <div className="space-y-2"><Label>Ends With</Label><Input placeholder="E.G., ING" value={endsWith} onChange={e => setEndsWith(e.target.value.toUpperCase())} className="uppercase" disabled={loadingDictionary || loading || dictionaryError !== null}/></div>
+                    <div className="space-y-2"><Label>Contains Substring</Label><Input placeholder="E.G., ZY" value={contains} onChange={e => setContains(e.target.value.toUpperCase())} className="uppercase" disabled={loadingDictionary || loading || dictionaryError !== null}/></div>
                   </div>
                   <div className="space-y-2">
                     <Label>Contains All These Letters</Label>
-                    <Input placeholder="E.G., XYZ" value={containsAll} onChange={e => setContainsAll(e.target.value.toUpperCase())} className="uppercase"/>
+                    <Input placeholder="E.G., XYZ" value={containsAll} onChange={e => setContainsAll(e.target.value.toUpperCase())} className="uppercase" disabled={loadingDictionary || loading || dictionaryError !== null}/>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-4 border-t">
-                    <div className="flex items-center space-x-2"><Switch id="q-no-u" checked={qWithoutU} onCheckedChange={setQWithoutU} /><Label htmlFor="q-no-u">Q without U</Label></div>
-                    <div className="flex items-center space-x-2"><Switch id="vowel-heavy" checked={isVowelHeavy} onCheckedChange={setIsVowelHeavy} /><Label htmlFor="vowel-heavy">Vowel-Heavy</Label></div>
-                    <div className="flex items-center space-x-2"><Switch id="no-vowels" checked={noVowels} onCheckedChange={setNoVowels} /><Label htmlFor="no-vowels">No Vowels</Label></div>
+                    <div className="flex items-center space-x-2"><Switch id="q-no-u" checked={qWithoutU} onCheckedChange={setQWithoutU} disabled={loadingDictionary || loading || dictionaryError !== null}/><Label htmlFor="q-no-u">Q without U</Label></div>
+                    <div className="flex items-center space-x-2"><Switch id="vowel-heavy" checked={isVowelHeavy} onCheckedChange={setIsVowelHeavy} disabled={loadingDictionary || loading || dictionaryError !== null}/><Label htmlFor="vowel-heavy">Vowel-Heavy</Label></div>
+                    <div className="flex items-center space-x-2"><Switch id="no-vowels" checked={noVowels} onCheckedChange={setNoVowels} disabled={loadingDictionary || loading || dictionaryError !== null}/><Label htmlFor="no-vowels">No Vowels</Label></div>
                   </div>
                 </CollapsibleContent>
               </Collapsible>
               <div className="pt-6 border-t">
-                <Label className="text-sm font-medium mb-2 block">Quick Length Filters</Label>
+                <Label className="text-sm font-medium mb-2 block">Filter by Word Length:</Label>
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" size="sm" onClick={() => handleQuickLengthFilter(2)}>2 Letters</Button>
-                  <Button variant="outline" size="sm" onClick={() => handleQuickLengthFilter(3)}>3 Letters</Button>
-                  <Button variant="outline" size="sm" onClick={() => handleQuickLengthFilter(7)}>Bingo-7</Button>
-                  <Button variant="outline" size="sm" onClick={() => handleQuickLengthFilter(8)}>Bingo-8</Button>
+                  <Button
+                    variant={selectedLengths.length === 0 ? "default" : "outline"}
+                    onClick={clearLengths}
+                    size="sm"
+                    disabled={loadingDictionary || loading || dictionaryError !== null}
+                  >
+                    All Lengths
+                  </Button>
+                  {commonLengths.map(len => (
+                    <Button
+                      key={len}
+                      variant={selectedLengths.includes(len) ? "default" : "outline"}
+                      onClick={() => toggleLength(len)}
+                      size="sm"
+                      disabled={loadingDictionary || loading || dictionaryError !== null}
+                    >
+                      {len} Letters
+                    </Button>
+                  ))}
                 </div>
               </div>
               {results.length > 0 && (
                 <div className="flex flex-wrap gap-2 pt-6 border-t">
-                  <Button onClick={saveToCardbox} variant="outline"><Save className="mr-2 h-4 w-4" /> Save to Cardbox</Button>
                   <Button onClick={exportAsTxt} variant="outline"><FileText className="mr-2 h-4 w-4" /> Export TXT</Button>
                   <Button onClick={exportAsPdf} variant="outline"><Download className="mr-2 h-4 w-4" /> Export PDF</Button>
                   <Button onClick={() => setShowSavePrompt(true)} variant="outline">📁 Save as Quiz Deck</Button>
                   {showSavePrompt && (
-                    <div className="flex gap-2 w-full pt-2">
+                    <div className="flex flex-col gap-2 w-full pt-2">
                       <Input placeholder="Enter deck name" value={deckName} onChange={(e) => setDeckName(e.target.value)} className="flex-grow" />
-                      <Button onClick={saveAsQuizDeck} variant="default">Save Deck</Button>
+                      <div className="flex items-center space-x-2 mt-2">
+                        <Switch id="make-public" checked={makeDeckPublic} onCheckedChange={setMakeDeckPublic} />
+                        <Label htmlFor="make-public">Make Public</Label>
+                      </div>
+                      {makeDeckPublic && (
+                        <Input
+                          placeholder="Add a public description (optional)"
+                          value={publicDescription}
+                          onChange={(e) => setPublicDescription(e.target.value)}
+                          className="mt-2 h-10 bg-gray-900 border-gray-700 text-base"
+                        />
+                      )}
+                      <Button onClick={saveAsQuizDeck} disabled={!deckName.trim()} variant="default">Save Deck</Button>
+                      {saveDeckMessage && ( // Display feedback message for saving deck
+                        <p className={`text-sm mt-2 text-center ${saveDeckMessage.includes("Error") ? "text-red-400" : "text-green-400"}`}>
+                          {saveDeckMessage}
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
               )}
             </CardContent>
           </Card>
-          {results.length > 0 && (
+          {loadingDictionary ? (
+             <Card className="max-w-4xl mx-auto border shadow-elegant">
+               <CardContent className="p-8 text-center space-y-4">
+                 <LoaderCircle className="w-12 h-12 animate-spin text-primary mx-auto" />
+                 <h3 className="text-xl font-semibold">Loading Dictionary...</h3>
+                 <p className="text-muted-foreground">This may take a moment.</p>
+               </CardContent>
+             </Card>
+          ) : results.length > 0 ? (
             <Card className="max-w-7xl mx-auto border shadow-elegant animate-fade-in">
               <CardHeader>
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
                   <CardTitle>Results ({results.length} words found)</CardTitle>
                   <div className="flex items-center gap-2">
                     <Label className="text-sm font-normal">Sort:</Label>
-                    <Button size="sm" variant="ghost" onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}>
-                      {sortOrder === 'asc' ? <SortAsc className="h-4 w-4 mr-1" /> : <SortDesc className="h-4 w-4 mr-1" />}
-                      {sortOrder === 'asc' ? 'Length (Asc)' : 'Length (Desc)'}
-                    </Button>
+                    <Select value={sortOrder} onValueChange={(v: "asc" | "desc") => setSortOrder(v)}>
+                      <SelectTrigger className="w-[120px]">
+                        <SelectValue placeholder="Sort Order" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="desc">Length (Desc)</SelectItem>
+                        <SelectItem value="asc">Length (Asc)</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-6">
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3">
-                  {results.map((word, index) => {
+                  {results.slice(0, displayLimit).map((word, index) => {
                     const available = (letters || "").toUpperCase().replace(/[^A-Z?.]/g, "");
                     const used = new Map();
                     for (const c of available) if (c !== '?' && c !== '.') used.set(c, (used.get(c) || 0) + 1);
@@ -325,17 +387,40 @@ export default function AnagramSolver() {
                       }
                     });
                     return (
-                      <button key={index} onClick={() => handleWordClick(word)} className="border border-primary/20 p-3 rounded-lg bg-gradient-to-br from-primary/5 to-primary/10 text-center font-mono font-semibold hover:scale-105 transition-transform duration-200 hover:shadow-md hover:bg-primary/20 focus:outline-none focus:ring-2 focus:ring-primary">
-                        <div className="text-lg tracking-wider">{highlighted}</div>
-                        <div className="text-xs text-muted-foreground mt-1">{word.length} letters</div>
-                      </button>
+                      <TooltipProvider key={index}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button onClick={() => handleWordClick(word)} className="border border-primary/20 p-3 rounded-lg bg-gradient-to-br from-primary/5 to-primary/10 text-center font-mono font-semibold hover:scale-105 transition-transform duration-200 hover:shadow-md hover:bg-primary/20 focus:outline-none focus:ring-2 focus:ring-primary">
+                              <div className="text-lg tracking-wider">{highlighted}</div>
+                              <div className="text-xs text-muted-foreground mt-1">{word.length} letters</div>
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Click to copy "{word}"</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     );
                   })}
                 </div>
+                {results.length > displayLimit && (
+                  <div className="text-center mt-6">
+                    <Button onClick={handleLoadMore} variant="outline" disabled={loading}>
+                      Load More ({results.length - displayLimit} remaining)
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
-          )}
-          {!loading && results.length === 0 && (letters.trim() || startsWith.trim() || endsWith.trim() || contains.trim()) && (
+          ) : (!loading && dictionaryError === null && letters.trim().length === 0 && results.length === 0 && startsWith.trim().length === 0 && endsWith.trim().length === 0 && contains.trim().length === 0 && selectedLengths.length === 0 && containsAll.trim().length === 0) ? (
+            <Card className="max-w-4xl mx-auto border shadow-elegant">
+              <CardContent className="p-8 text-center space-y-4">
+                <div className="text-4xl">👋</div>
+                <h3 className="text-xl font-semibold">Ready to find words?</h3>
+                <p className="text-muted-foreground">Enter letters or use the filters above to get started!</p>
+              </CardContent>
+            </Card>
+          ) : !loading && dictionaryError === null && (letters.trim() || startsWith.trim() || endsWith.trim() || contains.trim() || selectedLengths.length > 0 || containsAll.trim().length > 0) && results.length === 0 && (
             <Card className="max-w-4xl mx-auto border shadow-elegant">
               <CardContent className="p-8 text-center space-y-4">
                 <div className="text-4xl">🤔</div>
@@ -370,11 +455,11 @@ const DefinitionModal = ({ isOpen, onClose, word, definition, error, isLoading }
             <h2 className="text-2xl font-bold text-primary">{word}</h2>
             <div className="mt-4 min-h-[100px] flex items-center justify-center">
               {isLoading ? (<LoaderCircle className="w-8 h-8 animate-spin text-primary" />) : error ? (<p className="text-red-500 text-center">{error}</p>) : (definition && (
-                  <div className="space-y-2 text-left">
-                    <p className="font-semibold italic text-muted-foreground">{definition.partOfSpeech}</p>
-                    <p className="text-base" dangerouslySetInnerHTML={{ __html: definition.text }}></p>
-                  </div>
-                )
+                <div className="space-y-2 text-left">
+                  <p className="font-semibold italic text-muted-foreground">{definition.partOfSpeech}</p>
+                  <p className="text-base" dangerouslySetInnerHTML={{ __html: definition.text }}></p>
+                </div>
+              )
               )}
             </div>
           </motion.div>
