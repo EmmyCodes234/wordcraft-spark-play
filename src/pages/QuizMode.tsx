@@ -326,9 +326,9 @@ export default function QuizMode() {
         const shuffledGroups = shuffleArray(allAlphagramGroups);
 
         for (const alphaEntry of shuffledGroups) {
-            if (currentWordCount + alphaEntry.original.length <= randomQuizWordCount) {
+            if (currentWordCount + alphaEntry[1].length <= randomQuizWordCount) {
                 selectedGroups.push(alphaEntry);
-                currentWordCount += alphaEntry.original.length;
+                currentWordCount += alphaEntry[1].length;
             }
             if (currentWordCount >= randomQuizWordCount) break;
         }
