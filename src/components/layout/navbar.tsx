@@ -17,8 +17,8 @@ export default function Navbar() {
     { path: "/pattern", label: "Pattern Matcher" },
     { path: "/quiz", label: "Study" },
     // --- RE-ADDED: Social Features Links ---
-    { path: "/decks/public", label: "Community Decks" }, // Link to browse public decks
-    { path: "/leaderboard", label: "Leaderboard" },     // Link to leaderboard
+    // { path: "/decks/public", label: "Community Decks" }, // Link to browse public decks
+    // { path: "/leaderboard", label: "Leaderboard" },     // Link to leaderboard
     // --- END RE-ADDED ---
     { path: "/profile", label: "Profile" },
     { path: "/settings", label: "Settings" },

@@ -450,18 +450,7 @@ export default function QuizMode() {
                 </Card>
               ) : ( // Show quiz selection options once dictionary is loaded successfully
                 <>
-                  <div className="flex flex-col sm:flex-row justify-center gap-4 max-w-4xl mx-auto">
-                      <Link to="/leaderboard" className="w-full sm:w-auto">
-                          <Button className="w-full h-12 text-lg bg-gradient-primary">
-                              <Trophy className="mr-2 h-5 w-5" /> View Leaderboard
-                          </Button>
-                      </Link>
-                      <Link to="/decks/public" className="w-full sm:w-auto">
-                          <Button className="w-full h-12 text-lg bg-gradient-primary">
-                              <Share2 className="mr-2 h-5 w-5" /> Community Decks
-                          </Button>
-                      </Link>
-                  </div>
+                  
 
                   <Card className="max-w-4xl mx-auto border shadow-elegant">
                     <CardHeader><CardTitle className="flex items-center gap-2"><Layers className="h-6 w-6 text-primary" /> My Decks</CardTitle></CardHeader>
