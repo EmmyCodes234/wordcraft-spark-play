@@ -1,26 +1,31 @@
-import React, { useState, useMemo, useEffect, useRef, useCallback } from "react"; // Removed useMemo
-import { Brain, Search, Lightbulb, X as XIcon, Loader2 } from "lucide-react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { Brain, Search, Lightbulb, X as XIcon, Loader2 } from "lucide-react"; // Loader2 is correctly imported here
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
+import { FixedSizeList } from 'react-window';
+
+const INITIAL_DISPLAY_LIMIT = 200;
+const LOAD_MORE_AMOUNT = 200;
 
 export default function PatternMatcher() {
   const [letters, setLetters] = useState("");
   const [pattern, setPattern] = useState("");
   const [includeDictionaryWords, setIncludeDictionaryWords] = useState(true);
-  // Removed wordSet state, as worker now manages dictionary
   const [loadingDictionary, setLoadingDictionary] = useState(true);
   const [dictionaryError, setDictionaryError] = useState<string | null>(null);
 
   const [selectedLengths, setSelectedLengths] = useState<number[]>([]);
-  const [results, setResults] = useState<string[]>([]); // New state to store results received from worker
-  const [loading, setLoading] = useState(false); // New state to indicate ongoing search
+  const [results, setResults] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const [displayLimit, setDisplayLimit] = useState(INITIAL_DISPLAY_LIMIT);
 
   const workerRef = useRef<Worker | null>(null);
-  const componentId = useRef(Date.now().toString()).current; // Unique ID for this component instance
+  const componentId = useRef(Date.now().toString()).current;
 
   useEffect(() => {
     workerRef.current = new Worker(new URL('../workers/dictionaryWorker.ts', import.meta.url));
@@ -30,11 +35,12 @@ export default function PatternMatcher() {
         setLoadingDictionary(false);
       } else if (event.data.type === 'searchResults' && event.data.componentId === componentId) {
         setResults(event.data.results);
-        setLoading(false); // Stop loading after results received
+        setLoading(false);
+        setDisplayLimit(INITIAL_DISPLAY_LIMIT);
       } else if (event.data.type === 'error') {
         setDictionaryError(event.data.message);
         setLoadingDictionary(false);
-        setLoading(false); // Stop loading if error occurs
+        setLoading(false);
       }
     };
 
@@ -49,26 +55,22 @@ export default function PatternMatcher() {
   }, [componentId]);
 
 
-  // handleSearch now sends parameters to the worker
   const handleSearch = useCallback(() => {
-    // Only attempt search if dictionary is loaded and no current error
     if (loadingDictionary || dictionaryError) return;
 
-    setLoading(true); // Start loading spinner for search results
-    setResults([]); // Clear previous results immediately for visual feedback
+    setLoading(true);
+    setResults([]);
+    setDisplayLimit(INITIAL_DISPLAY_LIMIT);
 
-    // Send all relevant search parameters to the worker
     workerRef.current?.postMessage({
       type: 'searchWords',
-      componentId: componentId, // Send componentId to worker to identify results
+      componentId: componentId,
       searchParams: {
-        searchType: 'pattern', // Indicate this is a pattern search
+        searchType: 'pattern',
         letters, pattern, includeDictionaryWords, selectedLengths,
-        // PatternMatcher doesn't use these specific filters in its direct UI,
-        // but they are part of the common searchParams object if we assume future expansion
         startsWith: '', endsWith: '', contains: '', containsAll: '',
         qWithoutU: false, isVowelHeavy: false, noVowels: false,
-        sortOrder: 'asc' // PatternMatcher doesn't have a sort option, default to asc
+        sortOrder: 'asc'
       }
     });
   }, [
@@ -76,27 +78,74 @@ export default function PatternMatcher() {
     loadingDictionary, dictionaryError, componentId
   ]);
 
-  // Removed getMatchingWords and useMemo that wraps it.
-
   const toggleLength = (length: number) => {
     setSelectedLengths(prev => {
-      if (prev.includes(length)) {
-        return prev.filter(l => l !== length).sort((a, b) => a - b);
-      } else {
-        return [...prev, length].sort((a, b) => a - b);
-      }
+      const newLengths = prev.includes(length) ? prev.filter(l => l !== length) : [...prev, length];
+      return newLengths.sort((a, b) => a - b);
     });
-    // Trigger search after length change
-    setTimeout(handleSearch, 0); // Use setTimeout to allow state to update first
   };
 
   const clearLengths = () => {
     setSelectedLengths([]);
-    setTimeout(handleSearch, 0); // Trigger search after clearing lengths
   };
+
+  const isInitialMount = useRef(true);
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    const handler = setTimeout(() => {
+      handleSearch();
+    }, 300);
+
+    return () => clearTimeout(handler);
+  }, [selectedLengths, includeDictionaryWords]);
+
 
   const commonLengths = Array.from({ length: 14 }, (_, i) => i + 2);
 
+  const handleLoadMore = () => {
+    setDisplayLimit(prevLimit => prevLimit + LOAD_MORE_AMOUNT);
+  };
+
+  const isSearchButtonDisabled = loading || loadingDictionary || dictionaryError !== null || (!letters.trim() && !pattern.trim());
+
+  interface RowProps {
+    index: number;
+    style: React.CSSProperties;
+    data: {
+      words: string[];
+      letters: string;
+      pattern: string;
+    };
+  }
+
+  const Row: React.FC<RowProps> = ({ index, style, data }) => {
+    const word = data.words[index];
+    const highlighted = word.toUpperCase();
+
+    return (
+      <div style={style} className="flex items-center justify-center p-1">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge
+                variant="outline"
+                className="w-full h-10 px-2 py-1 text-base font-semibold cursor-pointer truncate flex items-center justify-center"
+                onClick={() => navigator.clipboard.writeText(word)}
+              >
+                {highlighted}
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Click to copy "{word}"</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gradient-subtle dark:bg-background">
@@ -127,8 +176,8 @@ export default function PatternMatcher() {
                   autoCapitalize="off"
                   autoCorrect="off"
                   spellCheck="false"
-                  disabled={loading || loadingDictionary || dictionaryError !== null} // Disable input if loading
-                  onKeyDown={(e) => e.key === "Enter" && handleSearch()} // Trigger search on Enter
+                  disabled={loading || loadingDictionary || dictionaryError !== null}
+                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                 />
                 <p className="text-xs text-muted-foreground mt-2">Max 15 letters. Optional.</p>
               </div>
@@ -144,8 +193,8 @@ export default function PatternMatcher() {
                   autoCapitalize="off"
                   autoCorrect="off"
                   spellCheck="false"
-                  disabled={loading || loadingDictionary || dictionaryError !== null} // Disable input if loading
-                  onKeyDown={(e) => e.key === "Enter" && handleSearch()} // Trigger search on Enter
+                  disabled={loading || loadingDictionary || dictionaryError !== null}
+                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                 />
                 <p className="text-xs text-muted-foreground mt-2">Max 15 characters. Optional.</p>
               </div>
@@ -189,14 +238,13 @@ export default function PatternMatcher() {
                 Only show words from standard dictionary
               </label>
             </div>
-            {/* Added a dedicated Search button for consistency, if user doesn't press Enter */}
             <Button
               onClick={handleSearch}
-              disabled={loading || loadingDictionary || dictionaryError !== null || (!letters.trim() && !pattern.trim())} // Disable if no input
+              disabled={isSearchButtonDisabled}
               className="w-full h-12 text-lg bg-gradient-primary hover:opacity-90 transition-all duration-300"
             >
-              {loadingDictionary ? <><LoaderCircle className="h-5 w-5 mr-2 animate-spin" /> Loading Dictionary...</> :
-               loading ? <><LoaderCircle className="h-5 w-5 mr-2 animate-spin" /> Searching...</> :
+              {loadingDictionary ? <><Loader2 className="h-5 w-5 mr-2 animate-spin" /> Loading Dictionary...</> :
+               loading ? <><Loader2 className="h-5 w-5 mr-2 animate-spin" /> Searching...</> :
                <><Search className="h-5 w-5 mr-2" /> Search</>}
             </Button>
           </CardContent>
@@ -205,7 +253,7 @@ export default function PatternMatcher() {
         {loadingDictionary ? (
           <Card className="max-w-4xl mx-auto border shadow-elegant">
             <CardContent className="p-8 text-center space-y-4">
-              <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto" />
+              <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto" /> {/* Corrected from LoaderCircle */}
               <h3 className="text-xl font-semibold">Loading Dictionary...</h3>
               <p className="text-muted-foreground">This may take a moment.</p>
             </CardContent>
@@ -229,30 +277,32 @@ export default function PatternMatcher() {
                   Error loading dictionary: {dictionaryError}. Please try again later.
                 </div>
               )}
-              {results.length === 0 && (letters || pattern) && (
-                <p className="text-muted-foreground text-center py-4">No words found for your criteria.</p>
-              )}
-              {results.length > 0 && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-                  {results.map((word) => (
-                    <TooltipProvider key={word}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Badge
-                            variant="outline"
-                            className="px-4 py-2 text-md font-semibold cursor-pointer truncate"
-                            onClick={() => navigator.clipboard.writeText(word)}
-                          >
-                            {word}
-                          </Badge>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Click to copy "{word}"</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  ))}
-                </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                {results.slice(0, displayLimit).map((word) => (
+                  <TooltipProvider key={word}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge
+                          variant="outline"
+                          className="px-4 py-2 text-md font-semibold cursor-pointer truncate"
+                          onClick={() => navigator.clipboard.writeText(word)}
+                        >
+                          {word}
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Click to copy "{word}"</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ))}
+              </div>
+              {results.length > displayLimit && (
+                  <div className="text-center mt-6">
+                    <Button onClick={handleLoadMore} variant="outline" disabled={loading}>
+                      Load More ({results.length - displayLimit} remaining)
+                    </Button>
+                  </div>
               )}
             </CardContent>
             <CardFooter className="p-6 border-t mt-4 text-muted-foreground text-sm">
@@ -263,7 +313,6 @@ export default function PatternMatcher() {
             </CardFooter>
           </Card>
         ) : (!loading && dictionaryError === null && !letters.trim() && !pattern.trim() && results.length === 0) ? (
-            // Initial message when nothing entered
             <Card className="max-w-4xl mx-auto border shadow-elegant">
               <CardContent className="p-8 text-center space-y-4">
                 <div className="text-4xl">👋</div>
@@ -272,7 +321,6 @@ export default function PatternMatcher() {
               </CardContent>
             </Card>
           ) : !loading && dictionaryError === null && (letters.trim() || pattern.trim()) && results.length === 0 && (
-            // No results found message (after search attempt)
             <Card className="max-w-4xl mx-auto border shadow-elegant">
               <CardContent className="p-8 text-center space-y-4">
                 <div className="text-4xl">🤔</div>
