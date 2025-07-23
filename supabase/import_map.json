@@ -1,0 +1,5 @@
+{
+  "imports": {
+    "webpush/": "./supabase/functions/_vendor/"
+  }
+}
