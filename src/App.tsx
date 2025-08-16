@@ -27,8 +27,8 @@ import RaceLobby from '@/pages/RaceLobby';
 import RaceGame from '@/pages/RaceGame';
 
 // --- NEW: Import Leaderboard and Public Decks Pages ---
-import LeaderboardPage from '@/pages/LeaderboardPage'; // Assuming path: src/pages/LeaderboardPage.tsx
-import PublicDecksPage from '@/pages/PublicDecksPage'; // Assuming path: src/pages/PublicDecksPage.tsx
+// // import LeaderboardPage from '@/pages/LeaderboardPage'; // Assuming path: src/pages/LeaderboardPage.tsx
+// // // import PublicDecksPage from '@/pages/PublicDecksPage'; // Assuming path: src/pages/PublicDecksPage.tsx
 // --- END NEW IMPORTS ---
 
 
@@ -57,8 +57,8 @@ function App() {
             <Route path="/tournament-adjudicator" element={<TournamentAdjudicator />} />
             
             {/* --- NEW: Social Features Routes --- */}
-            <Route path="/leaderboard" element={<LeaderboardPage />} />
-            <Route path="/decks/public" element={<PublicDecksPage />} />
+            {/*  */}
+            
             {/* --- END NEW --- */}
 
             {/* --- SRS & Race Routes --- */}
