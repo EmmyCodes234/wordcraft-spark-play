@@ -84,10 +84,13 @@ export default function QuizMode() {
         workerRef.current = new Worker(new URL('../workers/dictionaryWorker.ts', import.meta.url));
 
         workerRef.current.onmessage = (event) => {
+            console.log('QuizMode: Worker message received:', event.data.type);
             if (event.data.type === 'dictionaryLoaded') {
+                console.log('QuizMode: Dictionary loaded, word count:', event.data.wordSet?.length || 0);
                 setWordSet(new Set(event.data.wordSet));
                 setLoadingDictionary(false);
             } else if (event.data.type === 'error') {
+                console.error('QuizMode: Dictionary loading error:', event.data.message);
                 setDictionaryError(event.data.message);
                 setLoadingDictionary(false);
             }
@@ -95,6 +98,15 @@ export default function QuizMode() {
 
         workerRef.current.postMessage({ type: 'loadDictionary' });
         setLoadingDictionary(true);
+        
+        // Add a timeout in case the worker doesn't respond
+        const timeout = setTimeout(() => {
+            if (loadingDictionary) {
+                console.error('QuizMode: Dictionary loading timeout');
+                setDictionaryError('Dictionary loading timed out. Please refresh the page.');
+                setLoadingDictionary(false);
+            }
+        }, 30000); // 30 second timeout
 
         const fetchDecks = async () => {
             if (!user) return;
@@ -105,6 +117,7 @@ export default function QuizMode() {
         fetchDecks();
 
         return () => {
+            clearTimeout(timeout);
             if (workerRef.current) {
                 workerRef.current.terminate();
             }
@@ -312,8 +325,26 @@ export default function QuizMode() {
     };
 
     const handleStartRandomQuiz = () => {
-        if (wordSet.size === 0 || !selectedLength || loadingDictionary) return;
+        console.log('handleStartRandomQuiz called');
+        console.log('wordSet.size:', wordSet.size);
+        console.log('selectedLength:', selectedLength);
+        console.log('loadingDictionary:', loadingDictionary);
+        
+        if (wordSet.size === 0 || !selectedLength || loadingDictionary) {
+            console.log('handleStartRandomQuiz: Early return due to conditions not met');
+            if (wordSet.size === 0) {
+                alert('Dictionary not loaded. Please refresh the page and try again.');
+            } else if (!selectedLength) {
+                alert('Please select a word length first.');
+            } else if (loadingDictionary) {
+                alert('Dictionary is still loading. Please wait a moment.');
+            }
+            return;
+        }
         const wordsOfLength = Array.from(wordSet).filter(word => word.length === selectedLength);
+        console.log('wordsOfLength count:', wordsOfLength.length);
+        console.log('Sample words of length', selectedLength, ':', wordsOfLength.slice(0, 5));
+        
         const wordMap = new Map<string, string[]>();
         wordsOfLength.forEach((word) => {
             const alpha = getAlphagram(word);
@@ -422,11 +453,11 @@ export default function QuizMode() {
 
     return (
       <div className="min-h-screen bg-gradient-subtle dark:bg-background">
-        <div className="container mx-auto px-4 py-8 space-y-8">
-          <div className="text-center space-y-4">
-            <Brain className="h-12 w-12 text-primary mx-auto" />
-            <h1 className="text-4xl sm:text-5xl font-bold bg-gradient-primary bg-clip-text text-transparent">Study Modes</h1>
-            <p className="text-muted-foreground max-w-2xl mx-auto text-lg">Choose a deck to practice with timed anagram quizzes or spaced repetition flashcards.</p>
+        <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8">
+          <div className="text-center space-y-3 sm:space-y-4">
+            <Brain className="h-10 w-10 sm:h-12 sm:w-12 text-primary mx-auto" />
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-primary bg-clip-text text-transparent leading-tight">Study Modes</h1>
+            <p className="text-muted-foreground max-w-2xl mx-auto text-sm sm:text-base lg:text-lg px-2">Choose a deck to practice with timed anagram quizzes or spaced repetition flashcards.</p>
           </div>
 
           {!alphagrams.length && !showResults ? (
@@ -456,7 +487,7 @@ export default function QuizMode() {
                     <CardHeader><CardTitle className="flex items-center gap-2"><Layers className="h-6 w-6 text-primary" /> My Decks</CardTitle></CardHeader>
                     <CardContent className="p-6">
                       {decks.length > 0 ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
                           {decks.map(deck => {
                             const deckWords = getWordsFromDeck(deck.words);
                             return (
@@ -551,6 +582,31 @@ export default function QuizMode() {
                       <Button disabled={!selectedLength || !wordSet.size} onClick={handleStartRandomQuiz} className="w-full h-12 text-lg bg-gradient-primary">
                           Start Random Challenge
                       </Button>
+                      {!wordSet.size && (
+                        <p className="text-xs text-muted-foreground mt-2 text-center">
+                          Dictionary loading... ({wordSet.size} words loaded)
+                        </p>
+                      )}
+                      {dictionaryError && (
+                        <div className="text-center space-y-2">
+                          <p className="text-xs text-red-500">
+                            Error: {dictionaryError}
+                          </p>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => {
+                              setDictionaryError(null);
+                              setLoadingDictionary(true);
+                              if (workerRef.current) {
+                                workerRef.current.postMessage({ type: 'loadDictionary' });
+                              }
+                            }}
+                          >
+                            Retry Loading Dictionary
+                          </Button>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </>
@@ -584,8 +640,8 @@ export default function QuizMode() {
               <Card className="max-w-4xl mx-auto border shadow-elegant">
                 <CardContent className="p-6">
                   <div className="flex flex-col sm:flex-row gap-4">
-                    <Input placeholder="TYPE YOUR ANSWER AND PRESS ENTER..." value={userInput} onChange={(e) => setUserInput((e.target.value || '').toUpperCase())} onKeyDown={(e) => e.key === "Enter" && handleInput()} className="flex-1 text-lg p-4 sm:p-6 font-mono tracking-widest uppercase" autoFocus />
-                    <Button onClick={handleInput} className="px-6 py-4 text-lg sm:px-8 sm:py-6 bg-gradient-primary">Submit</Button>
+                    <Input placeholder="TYPE YOUR ANSWER AND PRESS ENTER..." value={userInput} onChange={(e) => setUserInput((e.target.value || '').toUpperCase())} onKeyDown={(e) => e.key === "Enter" && handleInput()} className="flex-1 text-base sm:text-lg p-4 sm:p-6 font-mono tracking-widest uppercase" autoFocus />
+                    <Button onClick={handleInput} className="px-6 py-4 text-base sm:text-lg sm:px-8 sm:py-6 bg-gradient-primary h-12 sm:h-auto">Submit</Button>
                   </div>
                   {feedback && <div className={`mt-4 text-center text-lg font-semibold py-3 rounded-lg ${feedbackColor}`}>{feedback}</div>}
                   <div className="text-center mt-4">

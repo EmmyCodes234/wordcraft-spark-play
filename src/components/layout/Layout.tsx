@@ -14,7 +14,7 @@ export default function Layout() {
 
       {/* Main Content */}
       <main className="flex-1 overflow-x-hidden">
-        <div className="min-h-[calc(100vh-120px)] w-full">
+        <div className="min-h-[calc(100vh-120px)] w-full pb-4 sm:pb-0">
           <Outlet />
         </div>
       </main>

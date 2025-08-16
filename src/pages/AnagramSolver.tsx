@@ -252,20 +252,25 @@ export default function AnagramSolver() {
   return (
     <>
       <div className="min-h-screen bg-background">
-        <div className="container mx-auto px-4 py-8 space-y-8">
-          <div className="text-center space-y-2">
-            <h1 className="text-4xl sm:text-5xl font-bold bg-gradient-primary bg-clip-text text-transparent">Anagram Solver</h1>
-            <p className="text-muted-foreground max-w-2xl mx-auto text-base sm:text-lg">Find words with the ultimate toolkit.</p>
+        <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8">
+          <div className="text-center space-y-3">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-primary bg-clip-text text-transparent leading-tight">Anagram Solver</h1>
+            <p className="text-muted-foreground max-w-2xl mx-auto text-sm sm:text-base lg:text-lg px-2">Find words with the ultimate toolkit.</p>
           </div>
           <Card className="max-w-4xl mx-auto border shadow-elegant">
-            <CardHeader><CardTitle className="flex items-center gap-2"><Shuffle className="h-6 w-6 text-primary" /> Letter & Word Finder</CardTitle></CardHeader>
-            <CardContent className="space-y-6">
+            <CardHeader className="px-4 sm:px-6">
+              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                <Shuffle className="h-5 w-5 sm:h-6 sm:w-6 text-primary" /> 
+                Letter & Word Finder
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6 p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row gap-4">
                 <Input
                   placeholder="ENTER LETTERS (E.G., RETAINS?)"
                   value={letters}
                   onChange={(e) => setLetters((e.target.value || '').toUpperCase())}
-                  className="flex-1 text-lg p-6 font-mono tracking-widest uppercase"
+                  className="flex-1 text-base sm:text-lg p-4 sm:p-6 font-mono tracking-widest uppercase"
                   onKeyPress={(e) => e.key === 'Enter' && handleSolve()}
                   disabled={loading || loadingDictionary || dictionaryError !== null}
                 />
@@ -273,11 +278,11 @@ export default function AnagramSolver() {
                   id="solve-button"
                   onClick={handleSolve}
                   disabled={isSolveButtonDisabled} // Use the new disabled condition
-                  className="px-8 py-6 text-lg bg-gradient-primary hover:opacity-90 transition-all duration-300"
+                  className="px-6 sm:px-8 py-4 sm:py-6 text-base sm:text-lg bg-gradient-primary hover:opacity-90 transition-all duration-300 h-12 sm:h-auto"
                 >
-                  {loadingDictionary ? <><LoaderCircle className="h-5 w-5 mr-2 animate-spin" /> Loading Dictionary...</> :
-                   loading ? <><LoaderCircle className="h-5 w-5 mr-2 animate-spin" /> Solving...</> :
-                   <><Search className="h-5 w-5 mr-2" /> Solve</>}
+                  {loadingDictionary ? <><LoaderCircle className="h-4 w-4 sm:h-5 sm:w-5 mr-2 animate-spin" /> Loading...</> :
+                   loading ? <><LoaderCircle className="h-4 w-4 sm:h-5 sm:w-5 mr-2 animate-spin" /> Solving...</> :
+                   <><Search className="h-4 w-4 sm:h-5 sm:w-5 mr-2" /> Solve</>}
                 </Button>
               </div>
               {dictionaryError && (
@@ -417,8 +422,8 @@ export default function AnagramSolver() {
                       <TooltipProvider key={index}>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <button onClick={() => handleWordClick(word)} className="border border-primary/20 p-3 rounded-lg bg-gradient-to-br from-primary/5 to-primary/10 text-center font-mono font-semibold hover:scale-105 transition-transform duration-200 hover:shadow-md hover:bg-primary/20 focus:outline-none focus:ring-2 focus:ring-primary">
-                              <div className="text-lg tracking-wider">{highlighted}</div>
+                            <button onClick={() => handleWordClick(word)} className="border border-primary/20 p-2 sm:p-3 rounded-lg bg-gradient-to-br from-primary/5 to-primary/10 text-center font-mono font-semibold hover:scale-105 transition-transform duration-200 hover:shadow-md hover:bg-primary/20 focus:outline-none focus:ring-2 focus:ring-primary min-h-[60px] sm:min-h-[80px]">
+                              <div className="text-sm sm:text-lg tracking-wider leading-tight">{highlighted}</div>
                               <div className="text-xs text-muted-foreground mt-1">{word.length} letters</div>
                             </button>
                           </TooltipTrigger>

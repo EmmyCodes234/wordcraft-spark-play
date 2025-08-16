@@ -72,14 +72,14 @@ const QuickActionCard = ({
   <Card className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-1 theme-transition">
     <CardContent className="p-4 sm:p-6">
       <div className="flex items-start gap-3 sm:gap-4">
-        <div className={`p-2 sm:p-3 rounded-lg ${gradient} text-white flex-shrink-0`}>
+        <div className={`p-2.5 sm:p-3 rounded-lg ${gradient} text-white flex-shrink-0`}>
           <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-sm sm:text-base mb-1 text-foreground">{title}</h3>
-          <p className="text-xs sm:text-sm text-muted-foreground mb-3 line-clamp-2">{description}</p>
-          <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
-            <Link to={to} className="flex items-center gap-2">
+          <h3 className="font-semibold text-sm sm:text-base mb-2 text-foreground leading-tight">{title}</h3>
+          <p className="text-xs sm:text-sm text-muted-foreground mb-4 line-clamp-2 leading-relaxed">{description}</p>
+          <Button asChild size="sm" variant="outline" className="w-full h-10 sm:h-9 sm:w-auto">
+            <Link to={to} className="flex items-center justify-center gap-2">
               Start
               <ArrowRight className="w-3 h-3" />
             </Link>
@@ -297,19 +297,19 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 theme-transition">
-      <div className="container mx-auto px-4 py-6 sm:py-8 space-y-6 sm:space-y-8 max-w-7xl">
+      <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8 max-w-7xl">
         
         {/* Welcome Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="text-center space-y-2 sm:space-y-3"
+          className="text-center space-y-3 sm:space-y-4"
         >
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground leading-tight">
             Welcome back, {displayName}! 👋
           </h1>
-          <p className="text-sm sm:text-base text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-sm sm:text-base text-muted-foreground max-w-2xl mx-auto px-2">
             Ready to expand your word power today?
           </p>
         </motion.div>

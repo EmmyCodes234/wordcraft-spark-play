@@ -37,16 +37,16 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="relative bg-background/95 backdrop-blur-sm border-b border-border/50 px-3 sm:px-6 py-2 sm:py-3">
+    <nav className="relative bg-background/95 backdrop-blur-sm border-b border-border/50 px-4 sm:px-6 py-3 sm:py-3">
       <div className="flex items-center justify-between max-w-7xl mx-auto">
         
         {/* Logo */}
         <div className="flex-shrink-0">
           <Link
             to="/"
-            className="flex items-center gap-1.5 sm:gap-2 text-lg sm:text-xl font-bold text-primary tracking-tight hover:opacity-90 transition-opacity"
+            className="flex items-center gap-2 text-lg sm:text-xl font-bold text-primary tracking-tight hover:opacity-90 transition-opacity"
           >
-            <span>WordSmith</span>
+            <span className="text-base sm:text-lg lg:text-xl">WordSmith</span>
             <span className="hidden sm:inline border border-muted-foreground text-muted-foreground text-xs font-semibold rounded-full px-2 py-0.5">
               BETA
             </span>
@@ -132,7 +132,7 @@ export default function Navbar() {
       {/* Mobile Menu */}
       {mobileOpen && user && (
         <div className="lg:hidden absolute top-full left-0 right-0 bg-background/95 backdrop-blur-sm border-b border-border/50 shadow-lg z-50">
-          <div className="px-3 py-4 space-y-1 max-w-7xl mx-auto">
+          <div className="px-4 py-4 space-y-2 max-w-7xl mx-auto">
             {navLinks.map((link) => {
               const Icon = link.icon;
               const isActive = location.pathname.startsWith(link.path) && link.path !== "/" || 
@@ -144,28 +144,28 @@ export default function Navbar() {
                   to={link.path}
                   onClick={closeMobile}
                   className={cn(
-                    "flex items-center gap-3 text-base font-medium py-3 px-3 rounded-lg transition-all duration-200",
+                    "flex items-center gap-3 text-base font-medium py-4 px-4 rounded-lg transition-all duration-200 min-h-[48px]",
                     isActive
                       ? "text-primary bg-primary/10 shadow-sm"
                       : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                   )}
                 >
-                  <Icon className="w-5 h-5" />
-                  {link.label}
+                  <Icon className="w-5 h-5 flex-shrink-0" />
+                  <span className="flex-1 text-left">{link.label}</span>
                 </Link>
               );
             })}
             
-            <div className="border-t border-border/50 pt-3 mt-3">
+            <div className="border-t border-border/50 pt-4 mt-4">
               <button
                 onClick={() => {
                   handleLogout();
                   closeMobile();
                 }}
-                className="w-full flex items-center gap-3 text-base font-medium py-3 px-3 rounded-lg text-destructive hover:bg-destructive/10 transition-all duration-200"
+                className="w-full flex items-center gap-3 text-base font-medium py-4 px-4 rounded-lg text-destructive hover:bg-destructive/10 transition-all duration-200 min-h-[48px]"
               >
-                <LogOut className="w-5 h-5" />
-                Logout
+                <LogOut className="w-5 h-5 flex-shrink-0" />
+                <span className="flex-1 text-left">Logout</span>
               </button>
             </div>
           </div>

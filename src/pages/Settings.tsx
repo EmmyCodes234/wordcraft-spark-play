@@ -496,15 +496,15 @@ export default function Settings() {
           transition={{ duration: 0.5 }}
           className="text-center sm:text-left"
         >
-          <div className="flex items-center gap-3 justify-center sm:justify-start mb-2">
-            <SettingsIcon className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
-            <h1 className="text-2xl sm:text-3xl font-bold">Settings</h1>
+          <div className="flex items-center gap-2 sm:gap-3 justify-center sm:justify-start mb-3">
+            <SettingsIcon className="w-5 h-5 sm:w-6 sm:h-6 lg:w-8 lg:h-8 text-primary" />
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold leading-tight">Settings</h1>
           </div>
-          <p className="text-sm sm:text-base text-muted-foreground">
+          <p className="text-sm sm:text-base text-muted-foreground px-2 sm:px-0">
             Customize your WordSmith experience
           </p>
           {user?.email && (
-            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+            <p className="text-xs sm:text-sm text-muted-foreground mt-2 px-2 sm:px-0">
               Signed in as <span className="font-medium">{user.email}</span>
             </p>
           )}

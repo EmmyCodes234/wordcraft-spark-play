@@ -70,9 +70,13 @@ self.onmessage = async (event) => {
     // Message to load the dictionary initially
     if (event.data.type === 'loadDictionary') {
         try {
+            console.log("Worker: Starting dictionary load...");
             const response = await fetch("/dictionaries/CSW24.txt");
+            console.log("Worker: Dictionary fetch response status:", response.status);
             const text = await response.text();
+            console.log("Worker: Dictionary text length:", text.length);
             const wordsArray = text.split("\n").map((w) => w.trim().toUpperCase());
+            console.log("Worker: Words array length:", wordsArray.length);
             wordSet = new Set(wordsArray);
             
             // Calculate frequency data for all words
@@ -83,7 +87,8 @@ self.onmessage = async (event) => {
                 }
             });
             
-            self.postMessage({ type: 'dictionaryLoaded', wordCount: wordSet.size });
+            console.log("Worker: Sending dictionary loaded message with", wordsArray.length, "words");
+            self.postMessage({ type: 'dictionaryLoaded', wordSet: wordsArray, wordCount: wordSet.size });
 
         } catch (error) {
             console.error("Failed to load CSW24 word list in worker:", error);

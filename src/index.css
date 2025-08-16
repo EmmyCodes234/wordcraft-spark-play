@@ -189,6 +189,46 @@
     transition: all 0.2s ease;
   }
 
+  /* Mobile-specific improvements */
+  @media (max-width: 640px) {
+    /* Better touch targets */
+    button, [role="button"], input[type="submit"], input[type="button"] {
+      min-height: 48px;
+      min-width: 48px;
+      padding: 12px 16px;
+    }
+    
+    /* Improve text readability on small screens */
+    .text-sm {
+      font-size: 14px;
+      line-height: 20px;
+    }
+    
+    /* Better spacing for mobile */
+    .space-y-2 > * + * {
+      margin-top: 8px;
+    }
+    
+    .space-y-4 > * + * {
+      margin-top: 16px;
+    }
+    
+    .space-y-6 > * + * {
+      margin-top: 24px;
+    }
+    
+    /* Improve card padding on mobile */
+    .p-6 {
+      padding: 16px;
+    }
+    
+    /* Better input sizing */
+    input, textarea, select {
+      font-size: 16px; /* Prevents zoom on iOS */
+      padding: 12px 16px;
+    }
+  }
+
   @media (min-width: 640px) {
     button, [role="button"], input[type="submit"], input[type="button"] {
       min-height: auto;

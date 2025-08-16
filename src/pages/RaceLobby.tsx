@@ -128,21 +128,21 @@ export default function RaceLobby() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
-      <div className="container mx-auto px-4 py-8 space-y-8 max-w-7xl">
+      <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8 max-w-7xl">
         
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center space-y-4"
+          className="text-center space-y-3 sm:space-y-4"
         >
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <Gamepad2 className="w-8 h-8 text-primary" />
-            <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+          <div className="flex items-center justify-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+            <Gamepad2 className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
+            <h1 className="text-3xl sm:text-4xl lg:text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent leading-tight">
               Word Race Arena
             </h1>
           </div>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+          <p className="text-muted-foreground text-sm sm:text-base lg:text-lg max-w-2xl mx-auto px-2">
             Challenge players worldwide in real-time anagram battles. Test your speed, accuracy, and word knowledge!
           </p>
         </motion.div>
@@ -161,7 +161,7 @@ export default function RaceLobby() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {RACE_TYPES.map((raceType, index) => {
                   const Icon = raceType.icon;
                   return (
@@ -212,7 +212,7 @@ export default function RaceLobby() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="flex flex-col sm:flex-row gap-4 items-center"
+          className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center"
         >
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
@@ -280,7 +280,7 @@ export default function RaceLobby() {
                   </Button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                   {filteredRaces.map((race, index) => {
                     const raceTypeInfo = getRaceTypeInfo(race.type);
                     const Icon = raceTypeInfo.icon;

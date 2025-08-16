@@ -24,7 +24,7 @@ export const Container: React.FC<ContainerProps> = ({
 
   const paddingClasses = {
     none: "",
-    sm: "px-3 sm:px-4",
+    sm: "px-4 sm:px-4",
     md: "px-4 sm:px-6",
     lg: "px-4 sm:px-6 lg:px-8"
   };
