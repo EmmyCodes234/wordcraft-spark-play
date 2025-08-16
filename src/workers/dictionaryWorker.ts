@@ -1,9 +1,10 @@
 // src/workers/dictionaryWorker.ts
 
-// Declare self as ServiceWorkerGlobalScope to avoid TypeScript errors with 'self'
-declare const self: ServiceWorkerGlobalScope;
+// Declare self as DedicatedWorkerGlobalScope for web workers
+declare const self: DedicatedWorkerGlobalScope;
 
 let wordSet: Set<string> | null = null; // Store the dictionary in the worker
+let wordFrequencyMap: Map<string, any> | null = null; // Store frequency data
 
 // Utility function (copied from AnagramSolver)
 function canMakeWord(word: string, availableLetters: string): boolean {
@@ -22,6 +23,47 @@ function canMakeWord(word: string, availableLetters: string): boolean {
     return true;
 }
 
+// Word frequency calculation (simplified for worker)
+function calculateWordFrequency(word: string) {
+    const length = word.length;
+    let frequency = 50;
+    let gameFrequency = 30;
+    
+    // Length-based adjustments
+    if (length <= 4) {
+        frequency += 30;
+        gameFrequency += 40;
+    } else if (length <= 6) {
+        frequency += 20;
+        gameFrequency += 20;
+    } else if (length >= 12) {
+        frequency -= 30;
+        gameFrequency -= 20;
+    }
+    
+    // High-value letters reduce frequency
+    const highValueLetters = (word.match(/[JQXZ]/g) || []).length;
+    frequency -= highValueLetters * 20;
+    
+    // Vowel density
+    const vowels = (word.match(/[AEIOU]/g) || []).length;
+    const vowelRatio = vowels / length;
+    if (vowelRatio > 0.6 || vowelRatio < 0.2) {
+        frequency -= 15;
+    }
+    
+    frequency = Math.max(1, Math.min(100, frequency));
+    gameFrequency = Math.max(1, Math.min(100, gameFrequency));
+    
+    let difficulty: string;
+    if (frequency >= 70) difficulty = 'common';
+    else if (frequency >= 50) difficulty = 'uncommon';
+    else if (frequency >= 25) difficulty = 'rare';
+    else difficulty = 'expert';
+    
+    return { frequency, gameFrequency, difficulty };
+}
+
 self.onmessage = async (event) => {
     // Message to load the dictionary initially
     if (event.data.type === 'loadDictionary') {
@@ -29,11 +71,17 @@ self.onmessage = async (event) => {
             const response = await fetch("/dictionaries/CSW24.txt");
             const text = await response.text();
             const wordsArray = text.split("\n").map((w) => w.trim().toUpperCase());
-            wordSet = new Set(wordsArray); // Store it in the worker's scope
+            wordSet = new Set(wordsArray);
             
-            // --- FIX HERE: Send the actual wordSet data back for initial load ---
-            self.postMessage({ type: 'dictionaryLoaded', wordSet: Array.from(wordSet) }); 
-            // --- END FIX ---
+            // Calculate frequency data for all words
+            wordFrequencyMap = new Map();
+            wordsArray.forEach(word => {
+                if (word.length >= 2) {
+                    wordFrequencyMap!.set(word, calculateWordFrequency(word));
+                }
+            });
+            
+            self.postMessage({ type: 'dictionaryLoaded', wordCount: wordSet.size });
 
         } catch (error) {
             console.error("Failed to load CSW24 word list in worker:", error);
@@ -52,7 +100,8 @@ self.onmessage = async (event) => {
             letters, pattern, includeDictionaryWords, selectedLengths,
             startsWith, endsWith, contains, containsAll,
             qWithoutU, isVowelHeavy, noVowels, sortOrder,
-            searchType
+            searchType, frequencyFilter, minProbability, maxProbability,
+            sortByFrequency
         } = searchParams;
 
         let filteredWords: string[] = Array.from(wordSet);
@@ -185,9 +234,42 @@ self.onmessage = async (event) => {
           });
         }
 
-        // Sorting
-        filteredWords.sort((a, b) => sortOrder === "asc" ? (a.length === b.length ? a.localeCompare(b) : a.length - b.length) : (a.length === b.length ? a.localeCompare(b) : b.length - a.length));
+        // Apply frequency filters
+        if (frequencyFilter && frequencyFilter !== 'all') {
+            filteredWords = filteredWords.filter(word => {
+                const freq = wordFrequencyMap?.get(word);
+                return freq && freq.difficulty === frequencyFilter;
+            });
+        }
 
-        self.postMessage({ type: 'searchResults', results: filteredWords, componentId });
+        if (minProbability !== undefined && maxProbability !== undefined) {
+            filteredWords = filteredWords.filter(word => {
+                const freq = wordFrequencyMap?.get(word);
+                if (!freq) return true;
+                return freq.frequency >= minProbability && freq.frequency <= maxProbability;
+            });
+        }
+
+        // Enhanced sorting with frequency
+        if (sortByFrequency) {
+            filteredWords.sort((a, b) => {
+                const freqA = wordFrequencyMap?.get(a)?.frequency || 50;
+                const freqB = wordFrequencyMap?.get(b)?.frequency || 50;
+                return freqB - freqA; // Higher frequency first
+            });
+        } else {
+            filteredWords.sort((a, b) => sortOrder === "asc" ? 
+                (a.length === b.length ? a.localeCompare(b) : a.length - b.length) : 
+                (a.length === b.length ? a.localeCompare(b) : b.length - a.length)
+            );
+        }
+
+        // Add frequency data to results
+        const resultsWithFrequency = filteredWords.map(word => ({
+            word,
+            frequency: wordFrequencyMap?.get(word) || { frequency: 50, difficulty: 'uncommon' }
+        }));
+
+        self.postMessage({ type: 'searchResults', results: resultsWithFrequency, componentId });
     }
 };

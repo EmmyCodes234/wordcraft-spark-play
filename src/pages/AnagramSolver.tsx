@@ -25,7 +25,7 @@ const LOAD_MORE_AMOUNT = 200;
 export default function AnagramSolver() {
   const { user } = useAuth();
   const [letters, setLetters] = useState("");
-  const [results, setResults] = useState<string[]>([]);
+  const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingDictionary, setLoadingDictionary] = useState(true);
   const [dictionaryError, setDictionaryError] = useState<string | null>(null);
@@ -41,6 +41,12 @@ export default function AnagramSolver() {
   const [qWithoutU, setQWithoutU] = useState(false);
   const [isVowelHeavy, setIsVowelHeavy] = useState(false);
   const [noVowels, setNoVowels] = useState(false);
+  
+  // Probability filters
+  const [frequencyFilter, setFrequencyFilter] = useState<'all' | 'common' | 'uncommon' | 'rare' | 'expert'>('all');
+  const [minProbability, setMinProbability] = useState(0);
+  const [maxProbability, setMaxProbability] = useState(100);
+  const [sortByFrequency, setSortByFrequency] = useState(false);
 
   const [showSavePrompt, setShowSavePrompt] = useState(false);
   const [deckName, setDeckName] = useState("");
@@ -119,12 +125,14 @@ export default function AnagramSolver() {
         letters,
         allowPartial, selectedLengths,
         startsWith, endsWith, contains, containsAll,
-        qWithoutU, isVowelHeavy, noVowels, sortOrder
+        qWithoutU, isVowelHeavy, noVowels, sortOrder,
+        frequencyFilter, minProbability, maxProbability, sortByFrequency
       }
     });
   }, [
     letters, allowPartial, selectedLengths, startsWith, endsWith, contains, containsAll,
-    qWithoutU, isVowelHeavy, noVowels, sortOrder, loadingDictionary, dictionaryError, componentId
+    qWithoutU, isVowelHeavy, noVowels, sortOrder, frequencyFilter, minProbability, 
+    maxProbability, sortByFrequency, loadingDictionary, dictionaryError, componentId
   ]);
 
 

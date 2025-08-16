@@ -1,13 +1,15 @@
-import React from "react";
 import { motion } from "framer-motion";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const adTexts = [
   "Welcome to our platform! Stay tuned for updates and announcements.",
 ];
 
 export const AdTicker = () => {
+  const isMobile = useIsMobile();
+
   return (
-    <div className="bg-primary/10 text-primary w-full flex items-center overflow-hidden rounded-lg border border-primary/20 h-[52px]">
+    <div className="bg-primary/5 text-primary w-full flex items-center overflow-hidden border-b border-primary/10 h-10 sm:h-12">
       <motion.div
         className="flex items-center whitespace-nowrap"
         animate={{
@@ -15,21 +17,20 @@ export const AdTicker = () => {
         }}
         transition={{
           ease: "linear",
-          duration: 120, // <-- Increased duration for a slower scroll
+          duration: isMobile ? 60 : 120,
           repeat: Infinity,
         }}
       >
-        {/* Render the list of ads twice for a seamless loop */}
         {adTexts.map((text, index) => (
           <div key={`a-${index}`} className="flex items-center">
-            <span className="px-12 font-medium text-sm text-center">{text}</span>
-            <div className="h-5 w-px bg-primary/20 shrink-0"></div>
+            <span className="px-6 sm:px-12 font-medium text-xs sm:text-sm text-center">{text}</span>
+            <div className="h-3 sm:h-4 w-px bg-primary/20 shrink-0"></div>
           </div>
         ))}
         {adTexts.map((text, index) => (
           <div key={`b-${index}`} className="flex items-center">
-            <span className="px-12 font-medium text-sm text-center">{text}</span>
-            <div className="h-5 w-px bg-primary/20 shrink-0"></div>
+            <span className="px-6 sm:px-12 font-medium text-xs sm:text-sm text-center">{text}</span>
+            <div className="h-3 sm:h-4 w-px bg-primary/20 shrink-0"></div>
           </div>
         ))}
       </motion.div>

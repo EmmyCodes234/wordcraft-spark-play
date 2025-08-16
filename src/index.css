@@ -4,6 +4,7 @@
 
 @layer base {
   :root {
+    /* Base colors - will be dynamically updated by ThemeContext */
     --background: 0 0% 100%;
     --foreground: 240 10% 10%;
 
@@ -34,6 +35,7 @@
 
     --radius: 0.75rem;
 
+    /* Semantic colors */
     --success: 142 76% 36%;
     --success-foreground: 0 0% 98%;
 
@@ -61,34 +63,88 @@
     --letter-rare: 271 81% 56%;
     --letter-premium: 16 85% 55%;
 
-    /* Gradients */
+    /* Dynamic Gradients - will be updated by ThemeContext */
     --gradient-primary: linear-gradient(135deg, hsl(142 76% 36%), hsl(142 86% 46%));
     --gradient-success: linear-gradient(135deg, hsl(142 76% 36%), hsl(142 86% 46%));
+    --gradient-warning: linear-gradient(135deg, hsl(38 92% 50%), hsl(38 100% 60%));
     --gradient-streak: linear-gradient(135deg, hsl(16 85% 55%), hsl(16 95% 65%));
     --gradient-xp: linear-gradient(135deg, hsl(45 93% 58%), hsl(45 100% 68%));
     --gradient-level: linear-gradient(135deg, hsl(271 81% 56%), hsl(271 91% 66%));
     --gradient-card: linear-gradient(135deg, hsl(0 0% 100%), hsl(240 5% 98%));
     --gradient-word-card: linear-gradient(135deg, hsl(240 5% 96%), hsl(240 3% 94%));
     --gradient-quiz: linear-gradient(135deg, hsl(221 83% 53%), hsl(221 93% 63%));
-    --gradient-celebration: linear-gradient(135deg, hsl(16 85% 55%), hsl(45 93% 58%));
-    --gradient-subtle: linear-gradient(180deg, hsl(240 5% 98%), hsl(240 5% 96%));
 
-    /* Shadows */
-    --shadow-elegant: 0 10px 30px -10px hsl(240 10% 10% / 0.1);
-    --shadow-glow: 0 0 40px hsl(142 76% 36% / 0.15);
-    --shadow-glow-success: 0 0 30px hsl(142 76% 36% / 0.2);
-    --shadow-glow-streak: 0 0 30px hsl(16 85% 55% / 0.2);
-    --shadow-glow-xp: 0 0 30px hsl(45 93% 58% / 0.2);
-    --shadow-card: 0 4px 20px -4px hsl(240 10% 10% / 0.08);
-    --shadow-word-card: 0 6px 25px -6px hsl(240 10% 10% / 0.12);
-    --shadow-float: 0 8px 30px -8px hsl(240 10% 10% / 0.15);
-    --shadow-inner: inset 0 2px 4px hsl(240 10% 10% / 0.06);
+    /* Font sizes */
+    --base-font-size: 16px;
+  }
 
-    /* Transitions */
-    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-bounce: all 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-    --transition-gentle: all 0.2s ease-out;
-    --transition-spring: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  .dark {
+    --background: 0 0% 4%;
+    --foreground: 0 0% 98%;
+
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 142 76% 36%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 240 5% 10%;
+    --secondary-foreground: 240 5% 98%;
+
+    --muted: 240 5% 10%;
+    --muted-foreground: 240 4% 65%;
+
+    --accent: 240 5% 10%;
+    --accent-foreground: 240 5% 98%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 240 5% 15%;
+    --input: 240 5% 15%;
+    --ring: 142 76% 36%;
+
+    /* Semantic colors for dark mode */
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 98%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 98%;
+
+    --info: 221 83% 53%;
+    --info-foreground: 0 0% 98%;
+
+    --error: 0 84% 60%;
+    --error-foreground: 0 0% 98%;
+
+    /* Gamification Colors for dark mode */
+    --xp: 45 93% 58%;
+    --streak: 16 85% 55%;
+    --level: 271 81% 56%;
+    --mastered: 142 76% 36%;
+    --learning: 221 83% 53%;
+    --new: 240 5% 64%;
+    --difficult: 0 84% 60%;
+
+    /* Letter Tile Colors for dark mode */
+    --letter-common: 240 5% 15%;
+    --letter-uncommon: 48 96% 53%;
+    --letter-rare: 271 81% 56%;
+    --letter-premium: 16 85% 55%;
+
+    /* Dynamic Gradients for dark mode */
+    --gradient-primary: linear-gradient(135deg, hsl(142 76% 36%), hsl(142 86% 46%));
+    --gradient-success: linear-gradient(135deg, hsl(142 76% 36%), hsl(142 86% 46%));
+    --gradient-warning: linear-gradient(135deg, hsl(38 92% 50%), hsl(38 100% 60%));
+    --gradient-streak: linear-gradient(135deg, hsl(16 85% 55%), hsl(16 95% 65%));
+    --gradient-xp: linear-gradient(135deg, hsl(45 93% 58%), hsl(45 100% 68%));
+    --gradient-level: linear-gradient(135deg, hsl(271 81% 56%), hsl(271 91% 66%));
+    --gradient-card: linear-gradient(135deg, hsl(0 0% 10%), hsl(240 5% 8%));
+    --gradient-word-card: linear-gradient(135deg, hsl(240 5% 15%), hsl(240 3% 13%));
+    --gradient-quiz: linear-gradient(135deg, hsl(221 83% 53%), hsl(221 93% 63%));
   }
 }
 
@@ -97,11 +153,205 @@
     @apply border-border;
   }
 
-  body {
-    @apply bg-background text-foreground;
+  html {
+    /* Prevent zoom on iOS when focusing inputs */
+    -webkit-text-size-adjust: 100%;
+    /* Smooth scrolling */
+    scroll-behavior: smooth;
+    /* Apply base font size */
+    font-size: var(--base-font-size);
   }
 
+  body {
+    @apply bg-background text-foreground;
+    /* Prevent horizontal scroll */
+    overflow-x: hidden;
+    /* Better font rendering */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Improve touch scrolling on iOS */
+    -webkit-overflow-scrolling: touch;
+    /* Smooth theme transitions */
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  /* Better focus styles for accessibility */
+  *:focus-visible {
+    @apply outline-2 outline-offset-2 outline-primary;
+  }
+
+  /* Improve button and interactive element accessibility */
+  button, [role="button"], input[type="submit"], input[type="button"] {
+    /* Ensure minimum touch target size on mobile */
+    min-height: 44px;
+    min-width: 44px;
+    /* Smooth transitions for theme changes */
+    transition: all 0.2s ease;
+  }
+
+  @media (min-width: 640px) {
+    button, [role="button"], input[type="submit"], input[type="button"] {
+      min-height: auto;
+      min-width: auto;
+    }
+  }
+
+  /* Improve text readability */
   .text-foreground {
     color: hsl(var(--foreground)) !important;
+  }
+
+  /* Ensure button text is always readable */
+  .btn-text-readable {
+    color: hsl(var(--primary-foreground)) !important;
+    font-weight: 500;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  }
+
+  /* Enhanced contrast for better readability */
+  .text-high-contrast {
+    color: hsl(var(--foreground)) !important;
+    font-weight: 600;
+  }
+
+  /* Card text improvements */
+  .card-text {
+    color: hsl(var(--card-foreground)) !important;
+  }
+
+  /* Button hover states with better contrast */
+  .btn-hover-contrast:hover {
+    filter: brightness(1.1) contrast(1.1);
+  }
+
+  /* Utility classes for mobile optimization */
+  .touch-manipulation {
+    touch-action: manipulation;
+  }
+
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Prevent text selection on interactive elements */
+  .no-select {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+
+  /* Safe area insets for devices with notches */
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .safe-left {
+    padding-left: env(safe-area-inset-left);
+  }
+
+  .safe-right {
+    padding-right: env(safe-area-inset-right);
+  }
+
+  /* Theme transition utilities */
+  .theme-transition {
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .theme-transition-fast {
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+
+  /* Dynamic gradient utilities */
+  .bg-gradient-primary {
+    background: var(--gradient-primary);
+  }
+
+  .bg-gradient-success {
+    background: var(--gradient-success);
+  }
+
+  .bg-gradient-warning {
+    background: var(--gradient-warning);
+  }
+
+  .bg-gradient-streak {
+    background: var(--gradient-streak);
+  }
+
+  .bg-gradient-xp {
+    background: var(--gradient-xp);
+  }
+
+  .bg-gradient-level {
+    background: var(--gradient-level);
+  }
+
+  .bg-gradient-card {
+    background: var(--gradient-card);
+  }
+
+  .bg-gradient-word-card {
+    background: var(--gradient-word-card);
+  }
+
+  .bg-gradient-quiz {
+    background: var(--gradient-quiz);
+  }
+
+  /* Enhanced button hover effects */
+  .btn-hover-glow {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-hover-glow::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s;
+  }
+
+  .btn-hover-glow:hover::before {
+    left: 100%;
+  }
+
+  /* Improved focus rings for better accessibility */
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+
+  /* Smooth color transitions for all elements */
+  *, *::before, *::after {
+    transition-property: background-color, color, border-color, box-shadow;
+    transition-duration: 0.2s;
+    transition-timing-function: ease;
+  }
+
+  /* Disable transitions for performance-critical elements */
+  .no-transition,
+  .no-transition *,
+  .no-transition *::before,
+  .no-transition *::after {
+    transition: none !important;
   }
 }

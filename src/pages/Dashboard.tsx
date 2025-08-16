@@ -1,23 +1,25 @@
-// File: src/pages/Dashboard.tsx
-
 import React, { useContext, useEffect, useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { AuthContext } from "../context/AuthContext";
-import { CheckCircle } from "lucide-react";
+import { useTheme } from "@/context/ThemeContext";
+import { CheckCircle, TrendingUp, Target, Flame, BookOpen, ArrowRight } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
+import { Link } from "react-router-dom";
+import { useIsMobile } from "@/hooks/use-mobile";
 
-// --- NEW: Helper function to calculate word score ---
+// Helper function to calculate word score
 const letterScores: { [key: string]: number } = {
   A: 1, B: 3, C: 3, D: 2, E: 1, F: 4, G: 2, H: 4, I: 1, J: 8, K: 5, L: 1, M: 3,
   N: 1, O: 1, P: 3, Q: 10, R: 1, S: 1, T: 1, U: 1, V: 4, W: 4, X: 8, Y: 4, Z: 10
 };
+
 const calculateWordScore = (word: string) => {
   return word.split('').reduce((acc, letter) => acc + (letterScores[letter] || 0), 0);
 };
 
-// --- Word of the Day Component (Updated to be Dynamic) ---
+// Word of the Day Component
 const WordOfTheDay = ({ wordSet }: { wordSet: Set<string> }) => {
   const [wordData, setWordData] = useState({ word: "LOADING...", points: 0 });
 
@@ -41,170 +43,333 @@ const WordOfTheDay = ({ wordSet }: { wordSet: Set<string> }) => {
     const score = calculateWordScore(dailyWord);
 
     setWordData({ word: dailyWord, points: score });
-
   }, [wordSet]);
 
   return (
-    <>
-      <p className="text-3xl font-bold text-primary uppercase tracking-wider">
+    <div className="text-center space-y-2">
+      <p className="text-2xl sm:text-3xl font-bold text-primary uppercase tracking-wider">
         {wordData.word}
       </p>
-      <p className="text-muted-foreground">Points: {wordData.points}</p>
-    </>
+      <p className="text-sm text-muted-foreground">Points: {wordData.points}</p>
+    </div>
   );
 };
 
-// --- Main Dashboard Component ---
+// Quick Action Card Component
+const QuickActionCard = ({ 
+  title, 
+  description, 
+  icon: Icon, 
+  to, 
+  gradient 
+}: { 
+  title: string; 
+  description: string; 
+  icon: any; 
+  to: string; 
+  gradient: string; 
+}) => (
+  <Card className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-1 theme-transition">
+    <CardContent className="p-4 sm:p-6">
+      <div className="flex items-start gap-3 sm:gap-4">
+        <div className={`p-2 sm:p-3 rounded-lg ${gradient} text-white flex-shrink-0`}>
+          <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-sm sm:text-base mb-1 text-foreground">{title}</h3>
+          <p className="text-xs sm:text-sm text-muted-foreground mb-3 line-clamp-2">{description}</p>
+          <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
+            <Link to={to} className="flex items-center gap-2">
+              Start
+              <ArrowRight className="w-3 h-3" />
+            </Link>
+          </Button>
+        </div>
+      </div>
+    </CardContent>
+  </Card>
+);
+
+// Stat Card Component with theme-aware colors
+const StatCard = ({ 
+  title, 
+  value, 
+  icon: Icon, 
+  gradient, 
+  iconColor, 
+  textColor, 
+  subtitle 
+}: { 
+  title: string; 
+  value: string | number; 
+  icon: any; 
+  gradient: string; 
+  iconColor: string; 
+  textColor: string; 
+  subtitle: string; 
+}) => (
+  <Card className={`${gradient} theme-transition`}>
+    <CardContent className="p-4 sm:p-6 text-center space-y-2 sm:space-y-3">
+      <div className="flex items-center justify-center gap-2">
+        <Icon className={`w-5 h-5 ${iconColor}`} />
+        <p className={`text-sm sm:text-base font-medium ${textColor}`}>{title}</p>
+      </div>
+      <p className={`text-2xl sm:text-3xl lg:text-4xl font-bold ${textColor}`}>{value}</p>
+      <p className={`text-xs sm:text-sm ${textColor} opacity-80`}>{subtitle}</p>
+    </CardContent>
+  </Card>
+);
+
 export default function Dashboard() {
   const { user } = useContext(AuthContext);
+  const { isDark, colors } = useTheme();
+  const isMobile = useIsMobile();
 
   const [profileName, setProfileName] = useState<string | null>(null);
   const [wordsMastered, setWordsMastered] = useState(0);
   const [quizAccuracy, setQuizAccuracy] = useState(0);
   const [dailyStreak, setDailyStreak] = useState(0);
   const [wordSet, setWordSet] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // --- NEW: Dictionary is now fetched on the dashboard ---
     const fetchDictionary = async () => {
-        try {
-            const response = await fetch("/dictionaries/CSW24.txt");
-            const text = await response.text();
-            const wordsArray = text.split("\n").map((w) => w.trim().toUpperCase());
-            setWordSet(new Set(wordsArray));
-        } catch (error) {
-            console.error("Failed to load dictionary:", error);
-        }
+      try {
+        const response = await fetch("/dictionaries/CSW24.txt");
+        const text = await response.text();
+        const wordsArray = text.split("\n").map((w) => w.trim().toUpperCase());
+        setWordSet(new Set(wordsArray));
+      } catch (error) {
+        console.error("Failed to load dictionary:", error);
+      }
     };
     fetchDictionary();
 
     const fetchDashboardData = async () => {
       if (!user) return;
 
-      // --- Fetch Profile Name ---
-      const { data: profileData } = await supabase.from("profiles").select("username").eq("id", user.id).single();
-      if (profileData) setProfileName(profileData.username);
+      try {
+        // Fetch Profile Name
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("username")
+          .eq("id", user.id)
+          .single();
+        if (profileData) setProfileName(profileData.username);
 
-      // --- Fetch Mastered Words Count ---
-      const { data: flashcards } = await supabase.from("flashcard_decks").select("words").eq("user_id", user.id);
-      if (flashcards) {
-        const masteredCount = flashcards.reduce((acc, deck) => acc + (deck.words?.length || 0), 0);
-        setWordsMastered(masteredCount);
-      }
+        // Fetch Mastered Words Count
+        const { data: flashcards } = await supabase
+          .from("flashcard_decks")
+          .select("words")
+          .eq("user_id", user.id);
+        if (flashcards) {
+          const masteredCount = flashcards.reduce((acc, deck) => acc + (deck.words?.length || 0), 0);
+          setWordsMastered(masteredCount);
+        }
 
-      // --- Fetch Quiz Accuracy ---
-      const { data: quizStats } = await supabase.from("quiz_results").select("correct, total").eq("user_id", user.id);
-      if (quizStats) {
-        let totalCorrect = 0;
-        let totalQuestions = 0;
-        quizStats.forEach(q => {
-          totalCorrect += q.correct || 0;
-          totalQuestions += q.total || 0;
-        });
-        const accuracy = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
-        setQuizAccuracy(accuracy);
-      }
+        // Fetch Quiz Accuracy
+        const { data: quizStats } = await supabase
+          .from("quiz_results")
+          .select("correct, total")
+          .eq("user_id", user.id);
+        if (quizStats) {
+          let totalCorrect = 0;
+          let totalQuestions = 0;
+          quizStats.forEach(q => {
+            totalCorrect += q.correct || 0;
+            totalQuestions += q.total || 0;
+          });
+          const accuracy = totalQuestions > 0 ? Math.round((totalCorrect / totalQuestions) * 100) : 0;
+          setQuizAccuracy(accuracy);
+        }
 
-      // --- Fetch and Calculate Daily Streak ---
-      const { data: activityDates } = await supabase
-        .from("quiz_results")
-        .select("created_at")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-      
-      if (activityDates) {
-        const uniqueDates = [...new Set(activityDates.map(a => new Date(a.created_at).toDateString()))].map(d => new Date(d));
-        let streak = 0;
-        if (uniqueDates.length > 0) {
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          const yesterday = new Date(today);
-          yesterday.setDate(yesterday.getDate() - 1);
-          
-          if (uniqueDates[0].getTime() === today.getTime() || uniqueDates[0].getTime() === yesterday.getTime()) {
-            streak = 1;
-            for (let i = 1; i < uniqueDates.length; i++) {
-              const expectedPreviousDay = new Date(uniqueDates[i-1]);
-              expectedPreviousDay.setDate(expectedPreviousDay.getDate() - 1);
-              if (uniqueDates[i].getTime() === expectedPreviousDay.getTime()) {
-                streak++;
-              } else {
-                break;
+        // Fetch and Calculate Daily Streak
+        const { data: activityDates } = await supabase
+          .from("quiz_results")
+          .select("created_at")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false });
+        
+        if (activityDates) {
+          const uniqueDates = [...new Set(activityDates.map(a => new Date(a.created_at).toDateString()))].map(d => new Date(d));
+          let streak = 0;
+          if (uniqueDates.length > 0) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            
+            if (uniqueDates[0].getTime() === today.getTime() || uniqueDates[0].getTime() === yesterday.getTime()) {
+              streak = 1;
+              for (let i = 1; i < uniqueDates.length; i++) {
+                const expectedPreviousDay = new Date(uniqueDates[i-1]);
+                expectedPreviousDay.setDate(expectedPreviousDay.getDate() - 1);
+                if (uniqueDates[i].getTime() === expectedPreviousDay.getTime()) {
+                  streak++;
+                } else {
+                  break;
+                }
               }
             }
           }
+          setDailyStreak(streak);
         }
-        setDailyStreak(streak);
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+      } finally {
+        setLoading(false);
       }
     };
+
     fetchDashboardData();
   }, [user]);
 
   const displayName = profileName || user?.user_metadata?.username || user?.user_metadata?.full_name || user?.email || "Wordcrafter";
 
-  return (
-    <div className="container mx-auto px-4 py-10 space-y-8">
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="text-center space-y-2"
-      >
-        <h1 className="text-4xl font-bold">
-          Welcome back, {displayName}! 👋
-        </h1>
-        <p className="text-muted-foreground max-w-2xl mx-auto">
-          Ready to expand your word power today?
-        </p>
-      </motion.div>
+  const quickActions = [
+    {
+      title: "Word Judge",
+      description: "Verify if a word is valid in competitive play",
+      icon: CheckCircle,
+      to: "/judge",
+      gradient: "bg-gradient-to-br from-blue-500 to-blue-600"
+    },
+    {
+      title: "Anagram Solver",
+      description: "Find all possible words from your letters",
+      icon: TrendingUp,
+      to: "/anagram",
+      gradient: "bg-gradient-to-br from-purple-500 to-purple-600"
+    },
+    {
+      title: "Study Mode",
+      description: "Practice with flashcards and quizzes",
+      icon: BookOpen,
+      to: "/quiz",
+      gradient: "bg-gradient-to-br from-green-500 to-green-600"
+    }
+  ];
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.2 }}>
-          <Card className="bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
-            <CardContent className="p-6 text-center space-y-3">
-              <p className="text-lg font-medium text-green-800 dark:text-green-300">Words Mastered</p>
-              <p className="text-4xl font-bold text-green-600 dark:text-green-400">{wordsMastered}</p>
-              <p className="text-sm text-green-700 dark:text-green-500">Keep going! 🌟</p>
+  // Theme-aware stat card configurations
+  const statCards = [
+    {
+      title: "Words Mastered",
+      value: wordsMastered,
+      icon: BookOpen,
+      gradient: isDark 
+        ? "bg-gradient-to-br from-success/20 to-success/10 border-success/30" 
+        : "bg-gradient-to-br from-success/10 to-success/5 border-success/20",
+      iconColor: "text-success",
+      textColor: "text-success-foreground",
+      subtitle: "Keep going! 🌟"
+    },
+    {
+      title: "Daily Streak",
+      value: dailyStreak,
+      icon: Flame,
+      gradient: isDark 
+        ? "bg-gradient-to-br from-warning/20 to-warning/10 border-warning/30" 
+        : "bg-gradient-to-br from-warning/10 to-warning/5 border-warning/20",
+      iconColor: "text-warning",
+      textColor: "text-warning-foreground",
+      subtitle: "Stay consistent! 🔥"
+    },
+    {
+      title: "Quiz Accuracy",
+      value: `${quizAccuracy}%`,
+      icon: Target,
+      gradient: isDark 
+        ? "bg-gradient-to-br from-info/20 to-info/10 border-info/30" 
+        : "bg-gradient-to-br from-info/10 to-info/5 border-info/20",
+      iconColor: "text-info",
+      textColor: "text-info-foreground",
+      subtitle: "Aim higher! 🎯"
+    }
+  ];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 theme-transition">
+      <div className="container mx-auto px-4 py-6 sm:py-8 space-y-6 sm:space-y-8 max-w-7xl">
+        
+        {/* Welcome Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="text-center space-y-2 sm:space-y-3"
+        >
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground">
+            Welcome back, {displayName}! 👋
+          </h1>
+          <p className="text-sm sm:text-base text-muted-foreground max-w-2xl mx-auto">
+            Ready to expand your word power today?
+          </p>
+        </motion.div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+          {statCards.map((stat, index) => (
+            <motion.div 
+              key={stat.title}
+              initial={{ opacity: 0, y: 20 }} 
+              animate={{ opacity: 1, y: 0 }} 
+              transition={{ duration: 0.6, delay: 0.1 + index * 0.1 }}
+              className={index === 2 ? "sm:col-span-2 lg:col-span-1" : ""}
+            >
+              <StatCard {...stat} />
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Word of the Day */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.4 }}
+        >
+          <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20 theme-transition">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center justify-center gap-2 text-lg sm:text-xl text-foreground">
+                <CheckCircle className="w-5 h-5 text-primary" />
+                Word of the Day
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <WordOfTheDay wordSet={wordSet} />
             </CardContent>
           </Card>
         </motion.div>
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.3 }}>
-          <Card className="bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800">
-            <CardContent className="p-6 text-center space-y-3">
-              <p className="text-lg font-medium text-yellow-800 dark:text-yellow-300">Daily Streak</p>
-              <p className="text-4xl font-bold text-yellow-600 dark:text-yellow-400">{dailyStreak}</p>
-              <p className="text-sm text-yellow-700 dark:text-yellow-500">Stay consistent! 🔥</p>
-            </CardContent>
-          </Card>
-        </motion.div>
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.4 }}>
-          <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
-            <CardContent className="p-6 text-center space-y-3">
-              <p className="text-lg font-medium text-blue-800 dark:text-blue-300">Quiz Accuracy</p>
-              <p className="text-4xl font-bold text-blue-600 dark:text-blue-400">{quizAccuracy}%</p>
-              <p className="text-sm text-blue-700 dark:text-blue-500">Aim higher! 🎯</p>
-            </CardContent>
-          </Card>
+
+        {/* Quick Actions */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.5 }}
+          className="space-y-4"
+        >
+          <h2 className="text-lg sm:text-xl font-semibold text-center sm:text-left text-foreground">Quick Actions</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {quickActions.map((action, index) => (
+              <motion.div
+                key={action.title}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.6 + index * 0.1 }}
+              >
+                <QuickActionCard {...action} />
+              </motion.div>
+            ))}
+          </div>
         </motion.div>
       </div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.5 }}
-      >
-        <Card className="bg-card text-card-foreground">
-          <CardContent className="p-6 space-y-3 text-center">
-            <div className="flex justify-center items-center gap-2">
-              <CheckCircle className="text-primary" />
-              <p className="text-lg font-medium">Word of the Day</p>
-            </div>
-            {/* --- Pass the loaded dictionary as a prop --- */}
-            <WordOfTheDay wordSet={wordSet} />
-            {/* The "Study This Word" button has been removed */}
-          </CardContent>
-        </Card>
-      </motion.div>
     </div>
   );
 }

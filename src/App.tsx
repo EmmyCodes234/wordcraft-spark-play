@@ -1,6 +1,11 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from '@/context/AuthContext';
+import { ThemeProvider } from '@/context/ThemeContext';
+import { LanguageProvider } from '@/context/LanguageContext';
+import { RaceProvider } from '@/context/RaceContext';
+import { Toaster } from '@/components/ui/toaster';
+import { ErrorBoundary } from '@/components/ui/error-boundary';
 
 // --- Core Layout & Protection ---
 import Layout from '@/components/layout/Layout';
@@ -25,6 +30,7 @@ import TournamentAdjudicator from '@/pages/TournamentAdjudicator';
 import DeckOptionsPage from '@/pages/DeckOptionsPage';
 import RaceLobby from '@/pages/RaceLobby';
 import RaceGame from '@/pages/RaceGame';
+import RaceResults from '@/pages/RaceResults';
 
 // --- NEW: Import Leaderboard and Public Decks Pages ---
 // // import LeaderboardPage from '@/pages/LeaderboardPage'; // Assuming path: src/pages/LeaderboardPage.tsx
@@ -34,9 +40,13 @@ import RaceGame from '@/pages/RaceGame';
 
 function App() {
   return (
-    <Router>
-      <AuthProvider>
-        <Routes>
+    <ErrorBoundary>
+      <Router>
+        <LanguageProvider>
+          <ThemeProvider>
+            <AuthProvider>
+              <RaceProvider>
+          <Routes>
           {/* --- Public Routes --- */}
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
@@ -66,6 +76,7 @@ function App() {
             <Route path="/decks/:deckId/options" element={<DeckOptionsPage />} />
             <Route path="/race-lobby" element={<RaceLobby />} />
             <Route path="/race/:raceId" element={<RaceGame />} />
+            <Route path="/race/:raceId/results" element={<RaceResults />} />
 
             {/* Alias routes */}
             <Route path="/judge" element={<WordJudge />} />
@@ -74,8 +85,13 @@ function App() {
             <Route path="/quiz" element={<QuizMode />} /> {/* This route also handles deckId param for public quizzes */}
           </Route>
         </Routes>
-      </AuthProvider>
-    </Router>
+              </RaceProvider>
+            </AuthProvider>
+            <Toaster />
+          </ThemeProvider>
+        </LanguageProvider>
+      </Router>
+    </ErrorBoundary>
   );
 }
 
