@@ -58,7 +58,7 @@ export default function ChallengePlay() {
         <Input
           placeholder="Type a word..."
           value={attempt}
-          onChange={(e) => setAttempt(e.target.value.toUpperCase())}
+          onChange={(e) => setAttempt((e.target.value || '').toUpperCase())}
           onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
         />
         <Button onClick={handleSubmit}>Submit</Button>

@@ -8,13 +8,15 @@ let wordFrequencyMap: Map<string, any> | null = null; // Store frequency data
 
 // Utility function (copied from AnagramSolver)
 function canMakeWord(word: string, availableLetters: string): boolean {
+    if (!word || !availableLetters) return false;
+    
     const letterCount = new Map<string, number>();
     let blanks = 0;
-    for (const letter of availableLetters.toUpperCase()) {
+    for (const letter of (availableLetters || '').toUpperCase()) {
       if (letter === '?' || letter === '.') blanks++;
       else letterCount.set(letter, (letterCount.get(letter) || 0) + 1);
     }
-    for (const letter of word.toUpperCase()) {
+    for (const letter of (word || '').toUpperCase()) {
       const count = letterCount.get(letter) || 0;
       if (count > 0) letterCount.set(letter, count - 1);
       else if (blanks > 0) blanks--;
@@ -110,8 +112,8 @@ self.onmessage = async (event) => {
         // (This part remains unchanged, just ensuring it's comprehensive in the worker)
 
         if (searchType === 'anagram') {
-            if (letters.trim()) {
-                const inputLetters = letters.toUpperCase().replace(/[^A-Z?.]/g, "");
+            if (letters && letters.trim()) {
+                const inputLetters = (letters || '').toUpperCase().replace(/[^A-Z?.]/g, "");
                 if (searchParams.allowPartial) {
                   filteredWords = filteredWords.filter((word) => canMakeWord(word, inputLetters));
                 } else {
@@ -131,8 +133,8 @@ self.onmessage = async (event) => {
         } else if (searchType === 'pattern') {
             if (!letters && !pattern) { filteredWords = []; }
 
-            const availableLetters = letters ? letters.toUpperCase().split("").sort() : [];
-            const cleanPattern = pattern ? pattern.toUpperCase() : "";
+            const availableLetters = letters ? (letters || '').toUpperCase().split("").sort() : [];
+            const cleanPattern = pattern ? (pattern || '').toUpperCase() : "";
 
             let tempFilteredWords: string[] = [];
 
@@ -217,11 +219,11 @@ self.onmessage = async (event) => {
         filteredWords = filteredWords.filter((word) => (word.length >= 2 && word.length <= 15));
 
 
-        if (startsWith) filteredWords = filteredWords.filter(w => w.startsWith(startsWith.toUpperCase()));
-        if (endsWith) filteredWords = filteredWords.filter(w => w.endsWith(endsWith.toUpperCase()));
-        if (contains) filteredWords = filteredWords.filter(w => w.includes(contains.toUpperCase()));
+        if (startsWith) filteredWords = filteredWords.filter(w => w.startsWith((startsWith || '').toUpperCase()));
+        if (endsWith) filteredWords = filteredWords.filter(w => w.endsWith((endsWith || '').toUpperCase()));
+        if (contains) filteredWords = filteredWords.filter(w => w.includes((contains || '').toUpperCase()));
         if (containsAll) {
-          const allChars = containsAll.toUpperCase().split('');
+          const allChars = (containsAll || '').toUpperCase().split('');
           filteredWords = filteredWords.filter(w => allChars.every(char => w.includes(char)));
         }
         if (qWithoutU) filteredWords = filteredWords.filter(w => w.includes('Q') && !w.includes('U'));

@@ -69,7 +69,7 @@ export default function CreateChallenge() {
       <Input
         placeholder="Enter your letters (e.g., CLOVERS)"
         value={letters}
-        onChange={(e) => setLetters(e.target.value.toUpperCase())}
+        onChange={(e) => setLetters((e.target.value || '').toUpperCase())}
       />
 
       <div className="space-y-2">

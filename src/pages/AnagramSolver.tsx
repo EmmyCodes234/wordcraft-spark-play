@@ -137,7 +137,25 @@ export default function AnagramSolver() {
 
 
   const fetchDefinition = async (word: string) => { /* ... unchanged ... */ };
-  const handleWordClick = (word: string) => { /* ... unchanged ... */ };
+  const handleWordClick = (word: string) => {
+    if (!word) return;
+    
+    // Copy word to clipboard
+    navigator.clipboard.writeText(word).then(() => {
+      console.log(`Copied "${word}" to clipboard`);
+    }).catch(err => {
+      console.error('Failed to copy word:', err);
+    });
+    
+    // Open definition modal
+    setSelectedWord(word);
+    setIsModalOpen(true);
+    setDefinitionLoading(true);
+    setDefinitionError(null);
+    
+    // Fetch definition
+    fetchDefinition(word);
+  };
 
   // --- FIX: Save to Quiz Deck Function ---
   const saveAsQuizDeck = async () => {
@@ -246,7 +264,7 @@ export default function AnagramSolver() {
                 <Input
                   placeholder="ENTER LETTERS (E.G., RETAINS?)"
                   value={letters}
-                  onChange={(e) => setLetters(e.target.value.toUpperCase())}
+                  onChange={(e) => setLetters((e.target.value || '').toUpperCase())}
                   className="flex-1 text-lg p-6 font-mono tracking-widest uppercase"
                   onKeyPress={(e) => e.key === 'Enter' && handleSolve()}
                   disabled={loading || loadingDictionary || dictionaryError !== null}
@@ -282,13 +300,13 @@ export default function AnagramSolver() {
                 </div>
                 <CollapsibleContent className="mt-6 space-y-6 border-t pt-6">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="space-y-2"><Label>Starts With</Label><Input placeholder="E.G., PRE" value={startsWith} onChange={e => setStartsWith(e.target.value.toUpperCase())} className="uppercase" disabled={loadingDictionary || loading || dictionaryError !== null}/></div>
-                    <div className="space-y-2"><Label>Ends With</Label><Input placeholder="E.G., ING" value={endsWith} onChange={e => setEndsWith(e.target.value.toUpperCase())} className="uppercase" disabled={loadingDictionary || loading || dictionaryError !== null}/></div>
-                    <div className="space-y-2"><Label>Contains Substring</Label><Input placeholder="E.G., ZY" value={contains} onChange={e => setContains(e.target.value.toUpperCase())} className="uppercase" disabled={loadingDictionary || loading || dictionaryError !== null}/></div>
+                    <div className="space-y-2"><Label>Starts With</Label><Input placeholder="E.G., PRE" value={startsWith} onChange={e => setStartsWith((e.target.value || '').toUpperCase())} className="uppercase" disabled={loadingDictionary || loading || dictionaryError !== null}/></div>
+                    <div className="space-y-2"><Label>Ends With</Label><Input placeholder="E.G., ING" value={endsWith} onChange={e => setEndsWith((e.target.value || '').toUpperCase())} className="uppercase" disabled={loadingDictionary || loading || dictionaryError !== null}/></div>
+                    <div className="space-y-2"><Label>Contains Substring</Label><Input placeholder="E.G., ZY" value={contains} onChange={e => setContains((e.target.value || '').toUpperCase())} className="uppercase" disabled={loadingDictionary || loading || dictionaryError !== null}/></div>
                   </div>
                   <div className="space-y-2">
                     <Label>Contains All These Letters</Label>
-                    <Input placeholder="E.G., XYZ" value={containsAll} onChange={e => setContainsAll(e.target.value.toUpperCase())} className="uppercase" disabled={loadingDictionary || loading || dictionaryError !== null}/>
+                    <Input placeholder="E.G., XYZ" value={containsAll} onChange={e => setContainsAll((e.target.value || '').toUpperCase())} className="uppercase" disabled={loadingDictionary || loading || dictionaryError !== null}/>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-4 border-t">
                     <div className="flex items-center space-x-2"><Switch id="q-no-u" checked={qWithoutU} onCheckedChange={setQWithoutU} disabled={loadingDictionary || loading || dictionaryError !== null}/><Label htmlFor="q-no-u">Q without U</Label></div>
@@ -382,11 +400,12 @@ export default function AnagramSolver() {
               </CardHeader>
               <CardContent className="p-6">
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3">
-                  {results.slice(0, displayLimit).map((word, index) => {
+                  {results.slice(0, displayLimit).map((wordObj, index) => {
+                    const word = typeof wordObj === 'string' ? wordObj : wordObj.word || '';
                     const available = (letters || "").toUpperCase().replace(/[^A-Z?.]/g, "");
                     const used = new Map();
                     for (const c of available) if (c !== '?' && c !== '.') used.set(c, (used.get(c) || 0) + 1);
-                    const highlighted = word.toUpperCase().split("").map((char, i) => {
+                    const highlighted = (word || '').toUpperCase().split("").map((char, i) => {
                       if (used.has(char) && used.get(char) > 0) {
                         used.set(char, used.get(char) - 1);
                         return <span key={i}>{char}</span>;

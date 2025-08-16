@@ -584,7 +584,7 @@ export default function QuizMode() {
               <Card className="max-w-4xl mx-auto border shadow-elegant">
                 <CardContent className="p-6">
                   <div className="flex flex-col sm:flex-row gap-4">
-                    <Input placeholder="TYPE YOUR ANSWER AND PRESS ENTER..." value={userInput} onChange={(e) => setUserInput(e.target.value.toUpperCase())} onKeyDown={(e) => e.key === "Enter" && handleInput()} className="flex-1 text-lg p-4 sm:p-6 font-mono tracking-widest uppercase" autoFocus />
+                    <Input placeholder="TYPE YOUR ANSWER AND PRESS ENTER..." value={userInput} onChange={(e) => setUserInput((e.target.value || '').toUpperCase())} onKeyDown={(e) => e.key === "Enter" && handleInput()} className="flex-1 text-lg p-4 sm:p-6 font-mono tracking-widest uppercase" autoFocus />
                     <Button onClick={handleInput} className="px-6 py-4 text-lg sm:px-8 sm:py-6 bg-gradient-primary">Submit</Button>
                   </div>
                   {feedback && <div className={`mt-4 text-center text-lg font-semibold py-3 rounded-lg ${feedbackColor}`}>{feedback}</div>}

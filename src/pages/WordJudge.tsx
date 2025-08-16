@@ -67,7 +67,7 @@ const WordJudge = () => {
               placeholder="ENTER A WORD..."
               value={words}
               // --- FIX: Convert input to uppercase on change ---
-              onChange={(e) => setWords(e.target.value.toUpperCase())}
+              onChange={(e) => setWords((e.target.value || '').toUpperCase())}
               onKeyPress={(e) => e.key === 'Enter' && handleJudge()}
               // --- FIX: Added 'uppercase' class for consistent styling ---
               className="text-lg p-6 text-center font-mono tracking-widest uppercase"
