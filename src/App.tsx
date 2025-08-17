@@ -4,6 +4,7 @@ import { AuthProvider } from '@/context/AuthContext';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { LanguageProvider } from '@/context/LanguageContext';
 import { RaceProvider } from '@/context/RaceContext';
+import { RealtimeProvider } from '@/context/RealtimeContext';
 import { Toaster } from '@/components/ui/toaster';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
 
@@ -46,6 +47,7 @@ function App() {
           <ThemeProvider>
             <AuthProvider>
               <RaceProvider>
+                <RealtimeProvider>
           <Routes>
           {/* --- Public Routes --- */}
           <Route path="/" element={<Landing />} />
@@ -85,6 +87,7 @@ function App() {
             <Route path="/quiz" element={<QuizMode />} /> {/* This route also handles deckId param for public quizzes */}
           </Route>
         </Routes>
+                </RealtimeProvider>
               </RaceProvider>
             </AuthProvider>
             <Toaster />

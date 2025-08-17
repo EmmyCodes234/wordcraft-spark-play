@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useRace, Race } from '@/context/RaceContext';
 import { useAuth } from '@/context/AuthContext';
+import { useRealtime } from '@/context/RealtimeContext';
 import { useNavigate } from 'react-router-dom';
 import { 
   Trophy, 
@@ -22,6 +23,7 @@ import {
   Gamepad2
 } from 'lucide-react';
 import { CreateRaceModal } from '@/components/CreateRaceModal';
+import { MultiplayerLobby } from '@/components/multiplayer/MultiplayerLobby';
 
 const RACE_TYPES = [
   {
@@ -75,6 +77,7 @@ export default function RaceLobby() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDifficulty, setFilterDifficulty] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
+  const [selectedRaceId, setSelectedRaceId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAvailableRaces();
@@ -91,9 +94,18 @@ export default function RaceLobby() {
 
   const handleJoinRace = async (raceId: string) => {
     try {
+      console.log('Attempting to join race:', raceId);
       const success = await joinRace(raceId);
+      
       if (success) {
-        navigate(`/race/${raceId}`);
+        console.log('Successfully joined race, navigating to game');
+        // Add a small delay to ensure state is updated
+        setTimeout(() => {
+          navigate(`/race/${raceId}`);
+        }, 100);
+      } else {
+        console.log('Failed to join race');
+        // Don't navigate if join failed
       }
     } catch (error) {
       console.error('Error joining race:', error);

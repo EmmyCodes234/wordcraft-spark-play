@@ -106,6 +106,7 @@ interface RaceContextType {
   getRaceResults: (raceId: string) => Promise<RaceResult[]>;
   calculateWordScore: (word: string, timeBonus: number, streak: number) => WordSubmission;
   getProbabilityFilteredWords: (alphagram: string, minProb: number, maxProb: number) => Promise<string[]>;
+  loadRace: (raceId: string) => Promise<boolean>;
 }
 
 const RaceContext = createContext<RaceContextType | undefined>(undefined);
@@ -281,13 +282,46 @@ export const RaceProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Race creation error:', error);
+        throw error;
+      }
 
-      const race = data as Race;
+      if (!data) {
+        throw new Error('No race data returned from database');
+      }
+
+      // Transform database race to our Race interface
+      const race: Race = {
+        id: data.id,
+        name: data.name || raceData.name!,
+        type: data.type || raceData.type!,
+        difficulty: data.difficulty || raceData.difficulty!,
+        duration: data.duration_seconds || raceData.duration!,
+        maxPlayers: data.max_participants || raceData.maxPlayers!,
+        currentPlayers: 0, // Will be updated when creator joins
+        status: data.status || raceData.status!,
+        createdBy: data.creator_id,
+        createdAt: data.created_at,
+        isPublic: data.is_public ?? raceData.isPublic!,
+        wordLength: data.word_length || raceData.wordLength,
+        rounds: data.rounds || raceData.rounds!,
+        alphagrams: raceData.alphagrams!,
+        probabilityMode: data.probability_mode ?? raceData.probabilityMode!,
+        minProbability: data.min_probability ?? raceData.minProbability!,
+        maxProbability: data.max_probability ?? raceData.maxProbability!,
+        settings: raceData.settings!
+      };
+
+      console.log('Created race:', race);
       setCurrentRace(race);
       
       // Auto-join the creator
-      await joinRace(race.id);
+      const joinSuccess = await joinRace(race.id);
+      if (!joinSuccess) {
+        console.error('Failed to auto-join creator to race');
+        // Don't throw error, race was created successfully
+      }
       
       toast({
         title: "Race Created!",
@@ -310,12 +344,20 @@ export const RaceProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const joinRace = async (raceId: string): Promise<boolean> => {
-    if (!user) return false;
-    
+    if (!user) {
+      console.error('No user found');
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to join races.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
     try {
-      console.log('Joining race:', raceId, 'User:', user.id);
+      console.log('Joining race:', raceId);
       
-      // Check if race exists
+      // First, check if the race exists and get its details
       const { data: race, error: raceError } = await supabase
         .from('races')
         .select('*')
@@ -323,47 +365,54 @@ export const RaceProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
 
       if (raceError || !race) {
-        console.error('Race fetch error:', raceError);
+        console.error('Race not found:', raceError);
         toast({
           title: "Race Not Found",
-          description: "The race you're trying to join doesn't exist.",
+          description: "This race may have ended or been removed.",
           variant: "destructive",
         });
         return false;
       }
 
-      console.log('Found race:', race);
-
       // Check if user is already a participant
-      const { data: existingParticipant, error: existingError } = await supabase
+      const { data: existingParticipant, error: participantCheckError } = await supabase
         .from('race_participants')
-        .select('id')
+        .select('*')
         .eq('race_id', raceId)
         .eq('user_id', user.id)
         .maybeSingle();
 
-      if (existingError) {
-        console.error('Error checking existing participant:', existingError);
+      if (participantCheckError) {
+        console.error('Error checking existing participant:', participantCheckError);
+        toast({
+          title: "Error",
+          description: "Failed to check race status. Please try again.",
+          variant: "destructive",
+        });
+        return false;
       }
 
       if (existingParticipant) {
-        console.log('User already joined');
-        toast({
-          title: "Already Joined",
-          description: "You are already a participant in this race.",
-          variant: "default",
-        });
+        console.log('User already joined race');
+        // User is already a participant, load the race data
+        await loadRaceData(raceId, race);
         return true;
       }
 
       // Check if race is full
-      const { data: participants, error: countError } = await supabase
+      const { data: participants, error: participantsError } = await supabase
         .from('race_participants')
-        .select('id')
+        .select('*')
         .eq('race_id', raceId);
 
-      if (countError) {
-        console.error('Error counting participants:', countError);
+      if (participantsError) {
+        console.error('Error fetching participants:', participantsError);
+        toast({
+          title: "Error",
+          description: "Failed to check race capacity. Please try again.",
+          variant: "destructive",
+        });
+        return false;
       }
 
       const currentPlayerCount = participants?.length || 0;
@@ -380,67 +429,103 @@ export const RaceProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return false;
       }
 
+      // Check if race is still accepting participants
+      if (race.status !== 'waiting') {
+        toast({
+          title: "Race Already Started",
+          description: "This race has already started and is no longer accepting participants.",
+          variant: "destructive",
+        });
+        return false;
+      }
+
       // Add participant
       console.log('Adding participant...');
+      const participantData = {
+        race_id: raceId,
+        user_id: user.id,
+        username: user.user_metadata?.username || 'Anonymous',
+        score: 0,
+        is_ready: false
+      };
+
+      console.log('Participant data:', participantData);
+
       const { data: newParticipant, error: participantError } = await supabase
         .from('race_participants')
-        .insert({
-          race_id: raceId,
-          user_id: user.id,
-          username: user.user_metadata?.username || 'Anonymous',
-          score: 0,
-          words_found: 0,
-          current_round: 0,
-          is_ready: false
-        })
+        .insert(participantData)
         .select()
         .single();
 
       if (participantError) {
         console.error('Participant insert error:', participantError);
-        throw participantError;
+        console.error('Error details:', {
+          code: participantError.code,
+          message: participantError.message,
+          details: participantError.details,
+          hint: participantError.hint
+        });
+        
+        // Handle specific error cases
+        if (participantError.code === '23505') {
+          // Unique constraint violation - user already joined
+          console.log('User already joined race (unique constraint)');
+          await loadRaceData(raceId, race);
+          return true;
+        }
+        
+        if (participantError.code === '23503') {
+          // Foreign key constraint violation
+          console.log('Foreign key constraint violation');
+          toast({
+            title: "Race Not Found",
+            description: "The race you're trying to join no longer exists.",
+            variant: "destructive",
+          });
+          return false;
+        }
+
+        if (participantError.code === '42501') {
+          // Insufficient privileges
+          console.log('Insufficient privileges to join race');
+          toast({
+            title: "Permission Denied",
+            description: "You don't have permission to join this race.",
+            variant: "destructive",
+          });
+          return false;
+        }
+        
+        // Generic error handling
+        console.log('Generic participant insert error');
+        console.log('Full error object:', JSON.stringify(participantError, null, 2));
+        toast({
+          title: "Join Failed",
+          description: `Failed to join race: ${participantError.message || 'Unknown error'}`,
+          variant: "destructive",
+        });
+        return false;
       }
 
       console.log('Successfully added participant:', newParticipant);
 
-      // Transform database race to our Race interface
-      const transformedRace: Race = {
-        id: race.id,
-        name: race.name || `Race ${race.id}`,
-        type: race.type || 'sprint',
-        difficulty: race.difficulty || 'medium',
-        duration: race.duration_seconds || 180,
-        maxPlayers: race.max_participants || 8,
-        currentPlayers: currentPlayerCount + 1,
-        status: race.status || 'waiting',
-        createdBy: race.creator_id,
-        createdAt: race.created_at,
-        isPublic: race.is_public !== false,
-        wordLength: race.word_length,
-        rounds: race.rounds || 10,
-        alphagrams: race.alphagram ? [race.alphagram] : ['AERT'],
-        probabilityMode: race.probability_mode || false,
-        minProbability: race.min_probability || 0,
-        maxProbability: race.max_probability || 100,
-        settings: {
-          allowHints: false,
-          showProgress: true,
-          enableChat: true,
-          pointsPerWord: 10,
-          timeBonus: true,
-          difficultyMultiplier: 1,
-          probabilityScoring: true,
-          bonusForRareWords: true,
-          streakMultiplier: true,
-        }
-      };
-      
-      setCurrentRace(transformedRace);
-      subscribeToRace(raceId);
+      // Verify the participant was added
+      if (!newParticipant) {
+        console.error('No participant data returned after insert');
+        toast({
+          title: "Join Failed",
+          description: "Failed to join race. Please try again.",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      // Load the complete race data
+      await loadRaceData(raceId, race);
       
       toast({
         title: "Joined Race!",
-        description: `You've joined the ${transformedRace.name} race.`,
+        description: `You've joined the ${race.name || 'Anagram Race'}.`,
         variant: "default",
       });
       
@@ -453,6 +538,107 @@ export const RaceProvider: React.FC<{ children: React.ReactNode }> = ({ children
         variant: "destructive",
       });
       return false;
+    }
+  };
+
+  // Helper function to load complete race data
+  const loadRaceData = async (raceId: string, raceData: any) => {
+    try {
+      // Fetch all participants for this race
+      const { data: participants, error: participantsError } = await supabase
+        .from('race_participants')
+        .select('*')
+        .eq('race_id', raceId);
+
+      if (participantsError) {
+        console.error('Error fetching participants:', participantsError);
+        return;
+      }
+
+      // Find current user's participant data
+      const myParticipantData = participants?.find(p => p.user_id === user?.id);
+
+      // Transform database race to our Race interface
+      const transformedRace: Race = {
+        id: raceData.id,
+        name: raceData.name || `Race ${raceData.id}`,
+        type: raceData.type || 'sprint',
+        difficulty: raceData.difficulty || 'medium',
+        duration: raceData.duration_seconds || 180,
+        maxPlayers: raceData.max_participants || 8,
+        currentPlayers: participants?.length || 0,
+        status: raceData.status || 'waiting',
+        createdBy: raceData.creator_id,
+        createdAt: raceData.created_at,
+        isPublic: raceData.is_public !== false,
+        wordLength: raceData.word_length,
+        rounds: raceData.rounds || 10,
+        alphagrams: raceData.alphagram ? [raceData.alphagram] : ['AERT'],
+        probabilityMode: raceData.probability_mode || false,
+        minProbability: raceData.min_probability || 0,
+        maxProbability: raceData.max_probability || 100,
+        settings: {
+          allowHints: false,
+          showProgress: true,
+          enableChat: true,
+          pointsPerWord: 10,
+          timeBonus: true,
+          difficultyMultiplier: 1,
+          probabilityScoring: true,
+          bonusForRareWords: true,
+          streakMultiplier: true,
+        }
+      };
+
+      // Transform participant data
+      const transformedParticipants = participants?.map(p => ({
+        id: p.id,
+        raceId: p.race_id,
+        userId: p.user_id,
+        username: p.username || 'Anonymous',
+        score: p.score || 0,
+        wordsFound: p.words_found || 0,
+        currentRound: p.current_round || 0,
+        isReady: p.is_ready || false,
+        joinedAt: p.joined_at,
+        finishedAt: p.finished_at,
+        streak: p.streak || 0,
+        averageWordScore: p.average_word_score || 0,
+        rareWordsFound: p.rare_words_found || 0,
+      })) || [];
+
+      // Set state
+      setCurrentRace(transformedRace);
+      setParticipants(transformedParticipants);
+      
+      if (myParticipantData) {
+        setMyParticipant({
+          id: myParticipantData.id,
+          raceId: myParticipantData.race_id,
+          userId: myParticipantData.user_id,
+          username: myParticipantData.username || 'Anonymous',
+          score: myParticipantData.score || 0,
+          wordsFound: myParticipantData.words_found || 0,
+          currentRound: myParticipantData.current_round || 0,
+          isReady: myParticipantData.is_ready || false,
+          joinedAt: myParticipantData.joined_at,
+          finishedAt: myParticipantData.finished_at,
+          streak: myParticipantData.streak || 0,
+          averageWordScore: myParticipantData.average_word_score || 0,
+          rareWordsFound: myParticipantData.rare_words_found || 0,
+        });
+      }
+
+      // Subscribe to real-time updates
+      subscribeToRace(raceId);
+      
+      console.log('Race data loaded successfully:', {
+        race: transformedRace,
+        participants: transformedParticipants,
+        myParticipant: myParticipantData
+      });
+    } catch (error) {
+      console.error('Error loading race data:', error);
     }
   };
 
@@ -632,13 +818,9 @@ export const RaceProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user || !currentRace || !myParticipant) return false;
     
     try {
-      const { error } = await supabase
-        .from('race_participants')
-        .update({ current_round: myParticipant.currentRound + 1 })
-        .eq('race_id', currentRace.id)
-        .eq('user_id', user.id);
-
-      if (error) throw error;
+      // Note: current_round column may not exist in database yet
+      // For now, we'll track rounds locally
+      console.log('Advancing to round:', myParticipant.currentRound + 1);
       
       // Reset streak for new round
       setMyParticipant(prev => prev ? { ...prev, streak: 0 } : null);
@@ -788,6 +970,52 @@ export const RaceProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Function to load race data without joining (for direct navigation)
+  const loadRace = async (raceId: string): Promise<boolean> => {
+    if (!user) return false;
+    
+    try {
+      console.log('Loading race data:', raceId);
+      
+      // Check if the race exists
+      const { data: race, error: raceError } = await supabase
+        .from('races')
+        .select('*')
+        .eq('id', raceId)
+        .single();
+
+      if (raceError || !race) {
+        console.error('Race not found:', raceError);
+        return false;
+      }
+
+      // Check if user is a participant
+      const { data: participant, error: participantError } = await supabase
+        .from('race_participants')
+        .select('*')
+        .eq('race_id', raceId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (participantError) {
+        console.error('Error checking participant status:', participantError);
+        return false;
+      }
+
+      if (!participant) {
+        console.log('User is not a participant in this race');
+        return false;
+      }
+
+      // Load the race data
+      await loadRaceData(raceId, race);
+      return true;
+    } catch (error) {
+      console.error('Error loading race:', error);
+      return false;
+    }
+  };
+
   return (
     <RaceContext.Provider value={{
       currentRace,
@@ -809,6 +1037,7 @@ export const RaceProvider: React.FC<{ children: React.ReactNode }> = ({ children
       getRaceResults,
       calculateWordScore,
       getProbabilityFilteredWords: getProbabilityFilteredWords,
+      loadRace: loadRace,
     }}>
       {children}
     </RaceContext.Provider>

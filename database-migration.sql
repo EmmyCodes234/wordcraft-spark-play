@@ -26,7 +26,8 @@ CREATE TABLE IF NOT EXISTS race_participants (
   current_round INTEGER DEFAULT 0,
   is_ready BOOLEAN DEFAULT false,
   joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  finished_at TIMESTAMP WITH TIME ZONE
+  finished_at TIMESTAMP WITH TIME ZONE,
+  UNIQUE(race_id, user_id)
 );
 
 -- Create race_words table if it doesn't exist
@@ -103,6 +104,18 @@ BEGIN
         ALTER TABLE race_participants ADD COLUMN finished_at TIMESTAMP WITH TIME ZONE;
     END IF;
     
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'race_participants' AND column_name = 'current_round') THEN
+        ALTER TABLE race_participants ADD COLUMN current_round INTEGER DEFAULT 0;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'race_participants' AND column_name = 'is_ready') THEN
+        ALTER TABLE race_participants ADD COLUMN is_ready BOOLEAN DEFAULT false;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'race_participants' AND column_name = 'words_found') THEN
+        ALTER TABLE race_participants ADD COLUMN words_found INTEGER DEFAULT 0;
+    END IF;
+    
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'race_participants' AND column_name = 'streak') THEN
         ALTER TABLE race_participants ADD COLUMN streak INTEGER DEFAULT 0;
     END IF;
@@ -113,6 +126,17 @@ BEGIN
     
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'race_participants' AND column_name = 'rare_words_found') THEN
         ALTER TABLE race_participants ADD COLUMN rare_words_found INTEGER DEFAULT 0;
+    END IF;
+END $$;
+
+-- Add unique constraint to prevent duplicate participants
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint 
+        WHERE conname = 'race_participants_race_id_user_id_key'
+    ) THEN
+        ALTER TABLE race_participants ADD CONSTRAINT race_participants_race_id_user_id_key UNIQUE(race_id, user_id);
     END IF;
 END $$;
 
