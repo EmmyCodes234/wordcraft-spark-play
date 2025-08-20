@@ -39,21 +39,13 @@ export interface Achievement {
 }
 
 export interface UserStats {
-  totalRaces: number;
-  racesWon: number;
   totalWords: number;
   rareWords: number;
   bestStreak: number;
   currentStreak: number;
   totalScore: number;
   averageRank: number;
-  fastestRace: number;
-  longestRace: number;
-  sprintWins: number;
-  marathonWins: number;
-  blitzWins: number;
   perfectRounds: number;
-  spectatedRaces: number;
   achievementsUnlocked: number;
 }
 
@@ -66,58 +58,6 @@ export interface UserAchievement {
 }
 
 const ACHIEVEMENTS: Achievement[] = [
-  // Racing Achievements
-  {
-    id: 'first_race',
-    name: 'First Steps',
-    description: 'Complete your first race',
-    icon: Gamepad2,
-    category: 'racing',
-    rarity: 'common',
-    condition: (stats) => stats.totalRaces >= 1,
-    reward: { xp: 100 }
-  },
-  {
-    id: 'race_veteran',
-    name: 'Race Veteran',
-    description: 'Complete 10 races',
-    icon: Trophy,
-    category: 'racing',
-    rarity: 'rare',
-    condition: (stats) => stats.totalRaces >= 10,
-    reward: { xp: 500, title: 'Veteran Racer' }
-  },
-  {
-    id: 'race_master',
-    name: 'Race Master',
-    description: 'Complete 50 races',
-    icon: Crown,
-    category: 'racing',
-    rarity: 'epic',
-    condition: (stats) => stats.totalRaces >= 50,
-    reward: { xp: 2000, title: 'Race Master' }
-  },
-  {
-    id: 'first_victory',
-    name: 'First Victory',
-    description: 'Win your first race',
-    icon: Medal,
-    category: 'racing',
-    rarity: 'common',
-    condition: (stats) => stats.racesWon >= 1,
-    reward: { xp: 200 }
-  },
-  {
-    id: 'champion',
-    name: 'Champion',
-    description: 'Win 10 races',
-    icon: Crown,
-    category: 'racing',
-    rarity: 'epic',
-    condition: (stats) => stats.racesWon >= 10,
-    reward: { xp: 1500, title: 'Champion' }
-  },
-  
   // Word Achievements
   {
     id: 'word_finder',
@@ -173,26 +113,7 @@ const ACHIEVEMENTS: Achievement[] = [
   },
   
   // Speed Achievements
-  {
-    id: 'speed_demon',
-    name: 'Speed Demon',
-    description: 'Win a Blitz race in under 45 seconds',
-    icon: Zap,
-    category: 'racing',
-    rarity: 'rare',
-    condition: (stats) => stats.fastestRace > 0 && stats.fastestRace <= 45,
-    reward: { xp: 600, title: 'Speed Demon' }
-  },
-  {
-    id: 'lightning_fast',
-    name: 'Lightning Fast',
-    description: 'Win a Blitz race in under 30 seconds',
-    icon: Zap,
-    category: 'racing',
-    rarity: 'legendary',
-    condition: (stats) => stats.fastestRace > 0 && stats.fastestRace <= 30,
-    reward: { xp: 1500, title: 'Lightning Fast' }
-  },
+  // Removed race-related speed achievements
   
   // Special Achievements
   {
@@ -204,16 +125,6 @@ const ACHIEVEMENTS: Achievement[] = [
     rarity: 'epic',
     condition: (stats) => stats.perfectRounds >= 1,
     reward: { xp: 1200, title: 'Perfectionist' }
-  },
-  {
-    id: 'spectator',
-    name: 'Spectator',
-    description: 'Watch 5 races as a spectator',
-    icon: Trophy,
-    category: 'social',
-    rarity: 'common',
-    condition: (stats) => stats.spectatedRaces >= 5,
-    reward: { xp: 200 }
   },
   {
     id: 'achievement_hunter',
@@ -246,21 +157,13 @@ export const AchievementProvider: React.FC<{ children: React.ReactNode }> = ({ c
   
   const [userAchievements, setUserAchievements] = useState<UserAchievement[]>([]);
   const [userStats, setUserStats] = useState<UserStats>({
-    totalRaces: 0,
-    racesWon: 0,
     totalWords: 0,
     rareWords: 0,
     bestStreak: 0,
     currentStreak: 0,
     totalScore: 0,
     averageRank: 0,
-    fastestRace: 0,
-    longestRace: 0,
-    sprintWins: 0,
-    marathonWins: 0,
-    blitzWins: 0,
     perfectRounds: 0,
-    spectatedRaces: 0,
     achievementsUnlocked: 0
   });
   const [newlyUnlocked, setNewlyUnlocked] = useState<Achievement[]>([]);
@@ -290,21 +193,13 @@ export const AchievementProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
         if (stats) {
           setUserStats({
-            totalRaces: stats.total_races || 0,
-            racesWon: stats.races_won || 0,
             totalWords: stats.total_words || 0,
             rareWords: stats.rare_words || 0,
             bestStreak: stats.best_streak || 0,
             currentStreak: stats.current_streak || 0,
             totalScore: stats.total_score || 0,
             averageRank: stats.average_rank || 0,
-            fastestRace: stats.fastest_race || 0,
-            longestRace: stats.longest_race || 0,
-            sprintWins: stats.sprint_wins || 0,
-            marathonWins: stats.marathon_wins || 0,
-            blitzWins: stats.blitz_wins || 0,
             perfectRounds: stats.perfect_rounds || 0,
-            spectatedRaces: stats.spectated_races || 0,
             achievementsUnlocked: achievements?.length || 0
           });
         }
@@ -323,7 +218,7 @@ export const AchievementProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const newlyUnlockedAchievements: Achievement[] = [];
 
     for (const achievement of ACHIEVEMENTS) {
-      const isAlreadyUnlocked = userAchievements.some(ua => ua.achievement_id === achievement.id);
+      const isAlreadyUnlocked = userAchievements.some(ua => ua.achievementId === achievement.id);
       
       if (!isAlreadyUnlocked && achievement.condition(updatedStats)) {
         newlyUnlockedAchievements.push(achievement);
@@ -375,21 +270,13 @@ export const AchievementProvider: React.FC<{ children: React.ReactNode }> = ({ c
         .from('user_stats')
         .upsert({
           user_id: user.id,
-          total_races: newStats.totalRaces,
-          races_won: newStats.racesWon,
           total_words: newStats.totalWords,
           rare_words: newStats.rareWords,
           best_streak: newStats.bestStreak,
           current_streak: newStats.currentStreak,
           total_score: newStats.totalScore,
           average_rank: newStats.averageRank,
-          fastest_race: newStats.fastestRace,
-          longest_race: newStats.longestRace,
-          sprint_wins: newStats.sprintWins,
-          marathon_wins: newStats.marathonWins,
-          blitz_wins: newStats.blitzWins,
           perfect_rounds: newStats.perfectRounds,
-          spectated_races: newStats.spectatedRaces,
           achievements_unlocked: newStats.achievementsUnlocked
         }, { onConflict: 'user_id' });
 
@@ -404,7 +291,7 @@ export const AchievementProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const achievement = ACHIEVEMENTS.find(a => a.id === achievementId);
     if (!achievement) return 0;
 
-    const userAchievement = userAchievements.find(ua => ua.achievement_id === achievementId);
+    const userAchievement = userAchievements.find(ua => ua.achievementId === achievementId);
     if (userAchievement) return 100;
 
     // Calculate progress based on current stats
@@ -417,7 +304,7 @@ export const AchievementProvider: React.FC<{ children: React.ReactNode }> = ({ c
   };
 
   const isUnlocked = (achievementId: string): boolean => {
-    return userAchievements.some(ua => ua.achievement_id === achievementId);
+    return userAchievements.some(ua => ua.achievementId === achievementId);
   };
 
   const unlockedAchievements = ACHIEVEMENTS.filter(a => isUnlocked(a.id));

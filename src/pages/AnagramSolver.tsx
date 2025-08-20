@@ -15,6 +15,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import MobileSearchInput from "@/components/ui/MobileSearchInput";
+import WordTile from "@/components/ui/WordTile";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const WORDNIK_API_KEY = "q6ozgglz09jnvewsiy4cvvaywtzey98sz3a108u6dmnvystl9";
 type Definition = { text: string; partOfSpeech: string; };
@@ -24,6 +27,7 @@ const LOAD_MORE_AMOUNT = 200;
 
 export default function AnagramSolver() {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const [letters, setLetters] = useState("");
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -188,7 +192,7 @@ export default function AnagramSolver() {
     console.log("Deck Public:", makeDeckPublic);
     console.log("Deck Description:", publicDescription);
 
-    const { error } = await supabase.from("flashcard_decks").insert([
+    const { error } = await supabase.from("cardbox").insert([
       {
         user_id: user.id,
         profile_id: deckProfileId, // FIX: Include profile_id for foreign key
@@ -265,25 +269,51 @@ export default function AnagramSolver() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6 p-4 sm:p-6">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Input
-                  placeholder="ENTER LETTERS (E.G., RETAINS?)"
-                  value={letters}
-                  onChange={(e) => setLetters((e.target.value || '').toUpperCase())}
-                  className="flex-1 text-base sm:text-lg p-4 sm:p-6 font-mono tracking-widest uppercase"
-                  onKeyPress={(e) => e.key === 'Enter' && handleSolve()}
-                  disabled={loading || loadingDictionary || dictionaryError !== null}
-                />
-                <Button
-                  id="solve-button"
-                  onClick={handleSolve}
-                  disabled={isSolveButtonDisabled} // Use the new disabled condition
-                  className="px-6 sm:px-8 py-4 sm:py-6 text-base sm:text-lg bg-gradient-primary hover:opacity-90 transition-all duration-300 h-12 sm:h-auto"
-                >
-                  {loadingDictionary ? <><LoaderCircle className="h-4 w-4 sm:h-5 sm:w-5 mr-2 animate-spin" /> Loading...</> :
-                   loading ? <><LoaderCircle className="h-4 w-4 sm:h-5 sm:w-5 mr-2 animate-spin" /> Solving...</> :
-                   <><Search className="h-4 w-4 sm:h-5 sm:w-5 mr-2" /> Solve</>}
-                </Button>
+              <div className="flex flex-col gap-4">
+                {isMobile ? (
+                  <MobileSearchInput
+                    value={letters}
+                    onChange={(value) => setLetters(value.toUpperCase())}
+                    placeholder="ENTER LETTERS (E.G., RETAINS?)"
+                    onSearch={handleSolve}
+                    disabled={loading || loadingDictionary || dictionaryError !== null}
+                    className="text-base font-mono tracking-widest uppercase"
+                  />
+                ) : (
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <Input
+                      placeholder="ENTER LETTERS (E.G., RETAINS?)"
+                      value={letters}
+                      onChange={(e) => setLetters((e.target.value || '').toUpperCase())}
+                      className="flex-1 text-base sm:text-lg p-4 sm:p-6 font-mono tracking-widest uppercase"
+                      onKeyPress={(e) => e.key === 'Enter' && handleSolve()}
+                      disabled={loading || loadingDictionary || dictionaryError !== null}
+                    />
+                    <Button
+                      id="solve-button"
+                      onClick={handleSolve}
+                      disabled={isSolveButtonDisabled}
+                      className="px-6 sm:px-8 py-4 sm:py-6 text-base sm:text-lg bg-gradient-primary hover:opacity-90 transition-all duration-300 h-12 sm:h-auto"
+                    >
+                      {loadingDictionary ? <><LoaderCircle className="h-4 w-4 sm:h-5 sm:w-5 mr-2 animate-spin" /> Loading...</> :
+                       loading ? <><LoaderCircle className="h-4 w-4 sm:h-5 sm:w-5 mr-2 animate-spin" /> Solving...</> :
+                       <><Search className="h-4 w-4 sm:h-5 sm:w-5 mr-2" /> Solve</>}
+                    </Button>
+                  </div>
+                )}
+                
+                {isMobile && (
+                  <Button
+                    id="solve-button-mobile"
+                    onClick={handleSolve}
+                    disabled={isSolveButtonDisabled}
+                    className="w-full py-4 text-lg bg-gradient-primary hover:opacity-90 transition-all duration-300"
+                  >
+                    {loadingDictionary ? <><LoaderCircle className="h-5 w-5 mr-2 animate-spin" /> Loading...</> :
+                     loading ? <><LoaderCircle className="h-5 w-5 mr-2 animate-spin" /> Solving...</> :
+                     <><Search className="h-5 w-5 mr-2" /> Solve</>}
+                  </Button>
+                )}
               </div>
               {dictionaryError && (
                 <div className="bg-red-500/10 text-red-600 border border-red-500 rounded-md p-3 text-center">
@@ -317,6 +347,118 @@ export default function AnagramSolver() {
                     <div className="flex items-center space-x-2"><Switch id="q-no-u" checked={qWithoutU} onCheckedChange={setQWithoutU} disabled={loadingDictionary || loading || dictionaryError !== null}/><Label htmlFor="q-no-u">Q without U</Label></div>
                     <div className="flex items-center space-x-2"><Switch id="vowel-heavy" checked={isVowelHeavy} onCheckedChange={setIsVowelHeavy} disabled={loadingDictionary || loading || dictionaryError !== null}/><Label htmlFor="vowel-heavy">Vowel-Heavy</Label></div>
                     <div className="flex items-center space-x-2"><Switch id="no-vowels" checked={noVowels} onCheckedChange={setNoVowels} disabled={loadingDictionary || loading || dictionaryError !== null}/><Label htmlFor="no-vowels">No Vowels</Label></div>
+                  </div>
+                  
+                  {/* Probability/Frequency Filters */}
+                  <div className="space-y-4 pt-4 border-t">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm font-medium">Word Frequency Filter</Label>
+                      <Badge variant="outline" className="text-xs">Probability-based</Badge>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Frequency Level</Label>
+                        <Select 
+                          value={frequencyFilter} 
+                          onValueChange={(value: 'all' | 'common' | 'uncommon' | 'rare' | 'expert') => setFrequencyFilter(value)}
+                          disabled={loadingDictionary || loading || dictionaryError !== null}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select frequency level" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Words</SelectItem>
+                            <SelectItem value="common">Common (70%+ frequency)</SelectItem>
+                            <SelectItem value="uncommon">Uncommon (50-70% frequency)</SelectItem>
+                            <SelectItem value="rare">Rare (25-50% frequency)</SelectItem>
+                            <SelectItem value="expert">Expert (&lt; 25% frequency)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <Switch 
+                            id="sort-by-frequency" 
+                            checked={sortByFrequency} 
+                            onCheckedChange={setSortByFrequency} 
+                            disabled={loadingDictionary || loading || dictionaryError !== null}
+                          />
+                          <Label htmlFor="sort-by-frequency">Sort by Frequency</Label>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Show most common words first
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Min Probability (%)</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={minProbability}
+                          onChange={(e) => setMinProbability(Math.max(0, Math.min(100, Number(e.target.value))))}
+                          disabled={loadingDictionary || loading || dictionaryError !== null}
+                          className="text-center"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label>Max Probability (%)</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={maxProbability}
+                          onChange={(e) => setMaxProbability(Math.max(0, Math.min(100, Number(e.target.value))))}
+                          disabled={loadingDictionary || loading || dictionaryError !== null}
+                          className="text-center"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant={frequencyFilter === 'all' && minProbability === 0 && maxProbability === 100 ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => {
+                          setFrequencyFilter('all');
+                          setMinProbability(0);
+                          setMaxProbability(100);
+                        }}
+                        disabled={loadingDictionary || loading || dictionaryError !== null}
+                      >
+                        Reset Filters
+                      </Button>
+                      <Button
+                        variant={frequencyFilter === 'common' ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setFrequencyFilter('common')}
+                        disabled={loadingDictionary || loading || dictionaryError !== null}
+                      >
+                        Common Only
+                      </Button>
+                      <Button
+                        variant={frequencyFilter === 'rare' ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setFrequencyFilter('rare')}
+                        disabled={loadingDictionary || loading || dictionaryError !== null}
+                      >
+                        Rare Only
+                      </Button>
+                      <Button
+                        variant={frequencyFilter === 'expert' ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setFrequencyFilter('expert')}
+                        disabled={loadingDictionary || loading || dictionaryError !== null}
+                      >
+                        Expert Only
+                      </Button>
+                    </div>
                   </div>
                 </CollapsibleContent>
               </Collapsible>
@@ -391,13 +533,22 @@ export default function AnagramSolver() {
                   <CardTitle>Results ({results.length} words found)</CardTitle>
                   <div className="flex items-center gap-2">
                     <Label className="text-sm font-normal">Sort:</Label>
-                    <Select value={sortOrder} onValueChange={(v: "asc" | "desc") => setSortOrder(v)}>
-                      <SelectTrigger className="w-[120px]">
+                    <Select value={sortByFrequency ? "frequency" : sortOrder} onValueChange={(v) => {
+                      if (v === "frequency") {
+                        setSortByFrequency(true);
+                        setSortOrder("desc");
+                      } else {
+                        setSortByFrequency(false);
+                        setSortOrder(v as "asc" | "desc");
+                      }
+                    }}>
+                      <SelectTrigger className="w-[140px]">
                         <SelectValue placeholder="Sort Order" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="desc">Length (Desc)</SelectItem>
                         <SelectItem value="asc">Length (Asc)</SelectItem>
+                        <SelectItem value="frequency">Frequency</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -407,6 +558,9 @@ export default function AnagramSolver() {
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3">
                   {results.slice(0, displayLimit).map((wordObj, index) => {
                     const word = typeof wordObj === 'string' ? wordObj : wordObj.word || '';
+                    const frequencyData = typeof wordObj === 'object' && wordObj.frequency ? wordObj.frequency : null;
+                    const frequency = frequencyData && typeof frequencyData === 'object' ? frequencyData.frequency : null;
+                    const difficulty = frequencyData && typeof frequencyData === 'object' ? frequencyData.difficulty : null;
                     const available = (letters || "").toUpperCase().replace(/[^A-Z?.]/g, "");
                     const used = new Map();
                     for (const c of available) if (c !== '?' && c !== '.') used.set(c, (used.get(c) || 0) + 1);
@@ -418,17 +572,62 @@ export default function AnagramSolver() {
                         return <span key={i} className="text-pink-500 font-bold">{char}</span>;
                       }
                     });
+                    
+                    // Get frequency badge color
+                    const getFrequencyBadgeColor = (freq: number | null, diff: string | null) => {
+                      if (!freq && !diff) return '';
+                      if (diff === 'common' || (freq && freq >= 70)) return 'bg-green-100 text-green-800 border-green-200';
+                      if (diff === 'uncommon' || (freq && freq >= 50)) return 'bg-blue-100 text-blue-800 border-blue-200';
+                      if (diff === 'rare' || (freq && freq >= 25)) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+                      if (diff === 'expert' || (freq && freq < 25)) return 'bg-red-100 text-red-800 border-red-200';
+                      return 'bg-gray-100 text-gray-800 border-gray-200';
+                    };
+                    
                     return (
                       <TooltipProvider key={index}>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <button onClick={() => handleWordClick(word)} className="border border-primary/20 p-2 sm:p-3 rounded-lg bg-gradient-to-br from-primary/5 to-primary/10 text-center font-mono font-semibold hover:scale-105 transition-transform duration-200 hover:shadow-md hover:bg-primary/20 focus:outline-none focus:ring-2 focus:ring-primary min-h-[60px] sm:min-h-[80px]">
-                              <div className="text-sm sm:text-lg tracking-wider leading-tight">{highlighted}</div>
-                              <div className="text-xs text-muted-foreground mt-1">{word.length} letters</div>
-                            </button>
+                            {isMobile ? (
+                              <button 
+                                onClick={() => handleWordClick(word)} 
+                                className="word-tile border border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10 text-center font-mono font-semibold hover:scale-105 transition-transform duration-200 hover:shadow-md hover:bg-primary/20 focus:outline-none focus:ring-2 focus:ring-primary"
+                              >
+                                <div className="text-sm tracking-wider leading-tight">{highlighted}</div>
+                                <div className="text-xs text-muted-foreground mt-1 flex items-center justify-center gap-1">
+                                  <span>{word.length} letters</span>
+                                  {frequency && (
+                                    <Badge variant="outline" className={`text-xs px-1 py-0 ${getFrequencyBadgeColor(frequency, difficulty)}`}>
+                                      {frequency}%
+                                    </Badge>
+                                  )}
+                                </div>
+                              </button>
+                            ) : (
+                              <button 
+                                onClick={() => handleWordClick(word)} 
+                                className="border border-primary/20 p-2 sm:p-3 rounded-lg bg-gradient-to-br from-primary/5 to-primary/10 text-center font-mono font-semibold hover:scale-105 transition-transform duration-200 hover:shadow-md hover:bg-primary/20 focus:outline-none focus:ring-2 focus:ring-primary min-h-[60px] sm:min-h-[80px]"
+                              >
+                                <div className="text-sm sm:text-lg tracking-wider leading-tight">{highlighted}</div>
+                                <div className="text-xs text-muted-foreground mt-1 space-y-1">
+                                  <div>{word.length} letters</div>
+                                  {frequency && (
+                                    <Badge variant="outline" className={`text-xs ${getFrequencyBadgeColor(frequency, difficulty)}`}>
+                                      {difficulty || `${frequency}%`}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </button>
+                            )}
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>Click to copy "{word}"</p>
+                            <div className="space-y-1">
+                              <p>Click to copy "{word}"</p>
+                              {frequency && (
+                                <p className="text-xs">
+                                  Frequency: {frequency}% ({difficulty || 'unknown'})
+                                </p>
+                              )}
+                            </div>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>

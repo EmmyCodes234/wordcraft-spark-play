@@ -191,41 +191,244 @@
 
   /* Mobile-specific improvements */
   @media (max-width: 640px) {
-    /* Better touch targets */
-    button, [role="button"], input[type="submit"], input[type="button"] {
-      min-height: 48px;
-      min-width: 48px;
-      padding: 12px 16px;
+    /* Better touch targets - increased from 48px to 56px for better accessibility */
+    button, [role="button"], input[type="submit"], input[type="button"], .btn {
+      min-height: 56px;
+      min-width: 56px;
+      padding: 16px 20px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      touch-action: manipulation;
     }
     
     /* Improve text readability on small screens */
     .text-sm {
-      font-size: 14px;
-      line-height: 20px;
+      font-size: 15px;
+      line-height: 22px;
+    }
+    
+    .text-base {
+      font-size: 16px;
+      line-height: 24px;
+    }
+    
+    .text-lg {
+      font-size: 18px;
+      line-height: 26px;
     }
     
     /* Better spacing for mobile */
     .space-y-2 > * + * {
-      margin-top: 8px;
+      margin-top: 12px;
     }
     
     .space-y-4 > * + * {
-      margin-top: 16px;
+      margin-top: 20px;
     }
     
     .space-y-6 > * + * {
-      margin-top: 24px;
+      margin-top: 28px;
+    }
+    
+    .space-y-8 > * + * {
+      margin-top: 32px;
     }
     
     /* Improve card padding on mobile */
     .p-6 {
+      padding: 20px;
+    }
+    
+    .p-4 {
       padding: 16px;
     }
     
     /* Better input sizing */
     input, textarea, select {
       font-size: 16px; /* Prevents zoom on iOS */
+      padding: 16px 20px;
+      border-radius: 12px;
+      min-height: 56px;
+    }
+    
+    /* Mobile-optimized grid layouts */
+    .grid-cols-1 {
+      grid-template-columns: repeat(1, minmax(0, 1fr));
+    }
+    
+    .grid-cols-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    
+    /* Better gap spacing for mobile */
+    .gap-4 {
+      gap: 16px;
+    }
+    
+    .gap-6 {
+      gap: 20px;
+    }
+    
+    /* Mobile-optimized margins */
+    .m-4 {
+      margin: 16px;
+    }
+    
+    .mx-4 {
+      margin-left: 16px;
+      margin-right: 16px;
+    }
+    
+    .my-4 {
+      margin-top: 16px;
+      margin-bottom: 16px;
+    }
+    
+    /* Better container padding */
+    .container {
+      padding-left: 16px;
+      padding-right: 16px;
+    }
+    
+    /* Mobile-optimized navigation */
+    .nav-link {
+      padding: 16px 20px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      min-height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    /* Mobile-optimized cards */
+    .card {
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* Better word tiles for mobile */
+    .word-tile {
+      min-height: 56px;
+      min-width: 56px;
       padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      touch-action: manipulation;
+    }
+    
+    /* Mobile-optimized modals */
+    .modal-content {
+      border-radius: 20px;
+      margin: 16px;
+      max-height: calc(100vh - 32px);
+      overflow-y: auto;
+    }
+    
+    /* Better scrollbars for mobile */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+      background: hsl(var(--muted-foreground) / 0.3);
+      border-radius: 4px;
+    }
+    
+    /* Mobile-optimized focus states */
+    button:focus-visible,
+    input:focus-visible,
+    [role="button"]:focus-visible {
+      outline: 3px solid hsl(var(--ring));
+      outline-offset: 2px;
+    }
+    
+    /* Better text selection */
+    ::selection {
+      background: hsl(var(--primary) / 0.2);
+      color: hsl(var(--primary-foreground));
+    }
+    
+    /* Mobile-optimized animations */
+    .animate-in {
+      animation-duration: 0.2s;
+    }
+    
+    .animate-out {
+      animation-duration: 0.15s;
+    }
+    
+    /* Better loading states */
+    .loading-spinner {
+      width: 32px;
+      height: 32px;
+      border-width: 3px;
+    }
+    
+    /* Mobile-optimized tooltips */
+    .tooltip {
+      font-size: 14px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      max-width: 200px;
+    }
+    
+    /* Better keyboard navigation */
+    .keyboard-focus:focus-visible {
+      outline: 3px solid hsl(var(--ring));
+      outline-offset: 2px;
+    }
+    
+    /* Mobile-optimized form elements */
+    .form-input {
+      min-height: 56px;
+      padding: 16px 20px;
+      border-radius: 12px;
+      font-size: 16px;
+    }
+    
+    .form-label {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    
+    /* Better mobile navigation */
+    .mobile-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: hsl(var(--background));
+      border-top: 1px solid hsl(var(--border));
+      padding: 8px 16px;
+      padding-bottom: calc(8px + env(safe-area-inset-bottom));
+      z-index: 50;
+    }
+    
+    /* Mobile-optimized search */
+    .search-input {
+      min-height: 56px;
+      padding: 16px 20px;
+      border-radius: 12px;
+      font-size: 16px;
+      background: hsl(var(--background));
+      border: 2px solid hsl(var(--border));
+    }
+    
+    .search-input:focus {
+      border-color: hsl(var(--ring));
+      box-shadow: 0 0 0 3px hsl(var(--ring) / 0.1);
     }
   }
 

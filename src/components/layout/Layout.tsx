@@ -1,6 +1,7 @@
 import React from "react";
 import { Outlet } from "react-router-dom";
 import Navbar from "./navbar";
+import MobileNav from "./MobileNav";
 import { AdTicker } from "@/components/ui/AdTicker";
 
 export default function Layout() {
@@ -14,10 +15,13 @@ export default function Layout() {
 
       {/* Main Content */}
       <main className="flex-1 overflow-x-hidden">
-        <div className="min-h-[calc(100vh-120px)] w-full pb-4 sm:pb-0">
+        <div className="min-h-[calc(100vh-120px)] w-full pb-20 lg:pb-4">
           <Outlet />
         </div>
       </main>
+
+      {/* Mobile Navigation */}
+      <MobileNav />
     </div>
   );
 }

@@ -68,6 +68,7 @@ export default function QuizMode() {
     const [configuringDeck, setConfiguringDeck] = useState<Deck | null>(null);
     const [quizWordCount, setQuizWordCount] = useState<number>(20);
     const [randomQuizWordCount, setRandomQuizWordCount] = useState<number>(20);
+    const [randomQuizTimeLimit, setRandomQuizTimeLimit] = useState<number>(5); // Custom time limit for random quiz
 
     const [isFromPublicDeck, setIsFromPublicDeck] = useState<boolean>(false);
     const [sourceDeckId, setSourceDeckId] = useState<string | null>(null);
@@ -266,7 +267,7 @@ export default function QuizMode() {
     };
 
     // --- FIX: startQuiz function now accepts a keepSourceInfo parameter ---
-    const startQuiz = (wordsForQuiz: string[], keepSourceInfo: boolean = false) => {
+    const startQuiz = (wordsForQuiz: string[], keepSourceInfo: boolean = false, customTimerMinutes?: number) => {
       if (wordsForQuiz.length === 0) return;
       const wordMap = new Map<string, string[]>();
       wordsForQuiz.forEach((rawWord) => {
@@ -283,7 +284,10 @@ export default function QuizMode() {
       setTypedWords([]);
       setFeedback("");
       setShowResults(false);
-      setTimer(timerMinutes * 60);
+      
+      // Use custom timer if provided, otherwise use the current timerMinutes
+      const finalTimerMinutes = customTimerMinutes ?? timerMinutes;
+      setTimer(finalTimerMinutes * 60);
       setProgress(100);
       setConfiguringDeck(null);
 
@@ -369,7 +373,10 @@ export default function QuizMode() {
         }
 
         const entries = selectedGroups.map(([alpha, words]) => ({ alpha, words: [...words], original: [...words]}));
-        startQuiz(entries.flatMap(e => e.words), false); // No need to keep source info for random quiz
+        
+        // Set the custom time limit and start the quiz
+        setTimerMinutes(randomQuizTimeLimit);
+        startQuiz(entries.flatMap(e => e.words), false, randomQuizTimeLimit); // Pass custom timer to startQuiz
     };
 
     const handleRetryQuiz = () => {
@@ -579,8 +586,40 @@ export default function QuizMode() {
                           Final count may be higher as all anagrams of selected words are included.
                         </p>
                       </div>
+                      <div>
+                        <label className="text-sm font-medium mb-2 block">Time Limit (minutes)</label>
+                        <div className="space-y-3">
+                          <Input 
+                            type="number" 
+                            value={randomQuizTimeLimit} 
+                            onChange={(e) => setRandomQuizTimeLimit(Math.min(60, Math.max(1, Number(e.target.value))))} 
+                            min="1" 
+                            max="60"
+                            disabled={!wordSet.size}
+                            className="text-center text-lg font-semibold"
+                          />
+                          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                            {[1, 3, 5, 10, 15, 30].map((preset) => (
+                              <Button
+                                key={preset}
+                                variant={randomQuizTimeLimit === preset ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setRandomQuizTimeLimit(preset)}
+                                disabled={!wordSet.size}
+                                className="text-xs sm:text-sm font-medium"
+                              >
+                                {preset}m
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Set your custom time limit for this challenge (1-60 minutes).
+                        </p>
+                      </div>
                       <Button disabled={!selectedLength || !wordSet.size} onClick={handleStartRandomQuiz} className="w-full h-12 text-lg bg-gradient-primary">
-                          Start Random Challenge
+                          <Timer className="mr-2 h-5 w-5" />
+                          Start {randomQuizTimeLimit}-minute Challenge
                       </Button>
                       {!wordSet.size && (
                         <p className="text-xs text-muted-foreground mt-2 text-center">

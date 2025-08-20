@@ -18,9 +18,6 @@ export default function Navbar() {
     { path: "/judge", label: "Word Judge", icon: Search, shortLabel: "Judge" },
     { path: "/anagram", label: "Anagram Solver", icon: Zap, shortLabel: "Anagram" },
     { path: "/pattern", label: "Pattern Matcher", icon: BookOpen, shortLabel: "Pattern" },
-    { path: "/race-lobby", label: "Word Races", icon: Gamepad2, shortLabel: "Races" },
-    { path: "/profile", label: "Profile", icon: User, shortLabel: "Profile" },
-    { path: "/settings", label: "Settings", icon: Settings, shortLabel: "Settings" },
   ];
 
   const toggleMobile = (e: React.MouseEvent) => {
@@ -72,7 +69,7 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="relative bg-background/95 backdrop-blur-sm border-b border-border/50 px-4 sm:px-6 py-3 sm:py-3 z-50">
+    <nav className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 sm:px-6 py-3 sm:py-3 z-50 shadow-sm">
       <div className="flex items-center justify-between max-w-7xl mx-auto relative">
         
         {/* Logo */}
@@ -93,7 +90,7 @@ export default function Navbar() {
 
         {/* Desktop Navigation */}
         <div className="hidden lg:flex items-center space-x-1">
-          {user && navLinks.slice(0, 6).map((link) => {
+          {user && navLinks.map((link) => {
             const Icon = link.icon;
             const isActive = location.pathname.startsWith(link.path) && link.path !== "/" || 
                            (location.pathname === "/" && link.path === "/");
@@ -184,7 +181,7 @@ export default function Navbar() {
           {/* Mobile Menu */}
           <div 
             className={cn(
-              "lg:hidden fixed top-[64px] left-0 right-0 bg-background/95 backdrop-blur-sm border-b border-border/50 shadow-lg z-50 max-h-[calc(100vh-64px)] overflow-y-auto transition-all duration-300 ease-out",
+              "lg:hidden fixed top-[64px] left-0 right-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-lg z-50 max-h-[calc(100vh-64px)] overflow-y-auto transition-all duration-300 ease-out",
               mobileOpen ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0"
             )}
             role="dialog"
@@ -216,6 +213,34 @@ export default function Navbar() {
               })}
               
               <div className="border-t border-border/50 pt-4 mt-4">
+                <Link
+                  to="/profile"
+                  onClick={closeMobile}
+                  className={cn(
+                    "flex items-center gap-3 text-base font-medium py-4 px-4 rounded-lg transition-all duration-200 min-h-[48px]",
+                    location.pathname === "/profile"
+                      ? "text-primary bg-primary/10 shadow-sm"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  )}
+                >
+                  <User className="w-5 h-5 flex-shrink-0" />
+                  <span className="flex-1 text-left">Profile</span>
+                </Link>
+                
+                <Link
+                  to="/settings"
+                  onClick={closeMobile}
+                  className={cn(
+                    "flex items-center gap-3 text-base font-medium py-4 px-4 rounded-lg transition-all duration-200 min-h-[48px]",
+                    location.pathname === "/settings"
+                      ? "text-primary bg-primary/10 shadow-sm"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  )}
+                >
+                  <Settings className="w-5 h-5 flex-shrink-0" />
+                  <span className="flex-1 text-left">Settings</span>
+                </Link>
+                
                 <button
                   onClick={() => {
                     handleLogout();

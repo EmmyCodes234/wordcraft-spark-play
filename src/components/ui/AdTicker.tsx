@@ -9,7 +9,7 @@ export const AdTicker = () => {
   const isMobile = useIsMobile();
 
   return (
-    <div className="bg-primary/5 text-primary w-full flex items-center overflow-hidden border-b border-primary/10 h-10 sm:h-12">
+    <div className="bg-white dark:bg-gray-900 text-primary w-full flex items-center overflow-hidden border-b border-gray-200 dark:border-gray-700 h-10 sm:h-12">
       <motion.div
         className="flex items-center whitespace-nowrap"
         animate={{
