@@ -62,8 +62,8 @@ const MobileNav = () => {
                 "flex flex-col items-center justify-center gap-1 p-3 rounded-xl transition-all duration-200 touch-manipulation",
                 "min-h-[56px] min-w-[56px]",
                 isActive 
-                  ? "bg-primary text-primary-foreground shadow-lg scale-105" 
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  ? "bg-blue-600 text-white shadow-lg scale-105" 
+                  : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
               )}
             >
               <motion.div
@@ -78,7 +78,7 @@ const MobileNav = () => {
               {isActive && (
                 <motion.div
                   layoutId="mobile-nav-indicator"
-                  className="absolute -bottom-1 w-1 h-1 bg-primary-foreground rounded-full"
+                  className="absolute -bottom-1 w-1 h-1 bg-white rounded-full"
                   initial={false}
                   transition={{ type: "spring", stiffness: 500, damping: 30 }}
                 />

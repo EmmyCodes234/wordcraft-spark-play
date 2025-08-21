@@ -56,7 +56,7 @@ export default function Landing() {
             variants={headlineVariants}
             initial="hidden"
             animate="visible"
-            className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-extrabold tracking-tighter leading-tight [text-shadow:0_0_20px_theme(colors.primary/30%)] mb-6"
+            className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-extrabold tracking-tighter leading-tight hero-text-glow mb-6"
           >
             {headline.split(" ").map((word, index) => (
               <motion.span 

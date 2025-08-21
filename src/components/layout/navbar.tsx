@@ -75,14 +75,14 @@ export default function Navbar() {
         {/* Logo */}
         <div className="flex-shrink-0">
           <Link
-            to="/"
+            to={user ? "/dashboard" : "/"}
             className="flex items-center gap-2 text-lg sm:text-xl font-bold text-primary tracking-tight hover:opacity-90 transition-opacity py-2 px-2"
             onClick={(e) => {
               console.log('Logo clicked');
             }}
           >
-            <span className="text-base sm:text-lg lg:text-xl">WordSmith</span>
-            <span className="hidden sm:inline border border-muted-foreground text-muted-foreground text-xs font-semibold rounded-full px-2 py-0.5">
+            <span className="text-base sm:text-lg lg:text-xl text-gray-900 dark:text-white">WordSmith</span>
+            <span className="hidden sm:inline border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 text-xs font-semibold rounded-full px-2 py-0.5">
               BETA
             </span>
           </Link>
