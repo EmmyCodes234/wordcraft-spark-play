@@ -9,7 +9,7 @@ export const AdTicker = () => {
   const isMobile = useIsMobile();
 
   return (
-    <div className="bg-background text-primary w-full flex items-center overflow-hidden border-b border-border h-10 sm:h-12 transition-colors duration-300">
+    <div className="bg-white text-primary w-full flex items-center overflow-hidden border-b border-gray-200 h-10 sm:h-12 transition-colors duration-300">
       <motion.div
         className="flex items-center whitespace-nowrap"
         animate={{
@@ -23,14 +23,14 @@ export const AdTicker = () => {
       >
         {adTexts.map((text, index) => (
           <div key={`a-${index}`} className="flex items-center">
-            <span className="px-6 sm:px-12 font-medium text-xs sm:text-sm text-center text-primary">{text}</span>
-            <div className="h-3 sm:h-4 w-px bg-primary/30 shrink-0"></div>
+            <span className="px-6 sm:px-12 font-medium text-xs sm:text-sm text-center text-blue-600">{text}</span>
+            <div className="h-3 sm:h-4 w-px bg-blue-300 shrink-0"></div>
           </div>
         ))}
         {adTexts.map((text, index) => (
           <div key={`b-${index}`} className="flex items-center">
-            <span className="px-6 sm:px-12 font-medium text-xs sm:text-sm text-center text-primary">{text}</span>
-            <div className="h-3 sm:h-4 w-px bg-primary/30 shrink-0"></div>
+            <span className="px-4 sm:px-12 font-medium text-xs sm:text-sm text-center text-blue-600">{text}</span>
+            <div className="h-3 sm:h-4 w-px bg-blue-300 shrink-0"></div>
           </div>
         ))}
       </motion.div>

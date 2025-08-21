@@ -30,7 +30,7 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="sticky top-0 bg-background border-b border-border px-4 sm:px-6 py-3 sm:py-3 z-50 shadow-sm transition-colors duration-300">
+    <nav className="sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-3 z-50 shadow-sm transition-colors duration-300">
       <div className="flex items-center justify-between max-w-7xl mx-auto relative">
         
         {/* Logo */}

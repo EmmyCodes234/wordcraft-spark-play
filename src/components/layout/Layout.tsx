@@ -8,7 +8,7 @@ export default function Layout() {
   return (
     <div className="flex flex-col min-h-screen bg-background transition-colors duration-300">
       {/* Sticky Header */}
-      <header className="sticky top-0 z-50 bg-background border-b border-border shadow-sm transition-colors duration-300">
+      <header className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm transition-colors duration-300">
         <Navbar />
         <AdTicker />
       </header>
