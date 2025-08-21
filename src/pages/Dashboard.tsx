@@ -296,7 +296,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+          <div className="min-h-screen bg-background transition-colors duration-300">
       <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8 max-w-7xl">
         
         {/* Welcome Section */}

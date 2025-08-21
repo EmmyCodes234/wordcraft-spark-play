@@ -459,12 +459,12 @@ export default function QuizMode() {
     };
 
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-background transition-colors duration-300">
         <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8">
           <div className="text-center space-y-3 sm:space-y-4">
-            <Brain className="h-10 w-10 sm:h-12 sm:w-12 text-blue-600 mx-auto" />
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-blue-600 leading-tight">Study Modes</h1>
-            <p className="text-gray-600 max-w-2xl mx-auto text-sm sm:text-base lg:text-lg px-2">Choose a deck to practice with timed anagram quizzes or spaced repetition flashcards.</p>
+            <Brain className="h-10 w-10 sm:h-12 sm:w-12 text-primary mx-auto" />
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-primary leading-tight">Study Modes</h1>
+            <p className="text-muted-foreground max-w-2xl mx-auto text-sm sm:text-base lg:text-lg px-2">Choose a deck to practice with timed anagram quizzes or spaced repetition flashcards.</p>
           </div>
 
           {!alphagrams.length && !showResults ? (

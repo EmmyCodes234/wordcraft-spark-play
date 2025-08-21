@@ -30,7 +30,7 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-3 z-50 shadow-sm">
+    <nav className="sticky top-0 bg-background border-b border-border px-4 sm:px-6 py-3 sm:py-3 z-50 shadow-sm transition-colors duration-300">
       <div className="flex items-center justify-between max-w-7xl mx-auto relative">
         
         {/* Logo */}
@@ -42,8 +42,8 @@ export default function Navbar() {
               console.log('Logo clicked - allowing navigation');
             }}
           >
-            <span className="text-base sm:text-lg lg:text-xl text-gray-900">WordSmith</span>
-            <span className="hidden sm:inline border border-gray-300 text-gray-600 text-xs font-semibold rounded-full px-2 py-0.5">
+            <span className="text-base sm:text-lg lg:text-xl text-foreground">WordSmith</span>
+            <span className="hidden sm:inline border border-border text-muted-foreground text-xs font-semibold rounded-full px-2 py-0.5">
               BETA
             </span>
           </Link>
