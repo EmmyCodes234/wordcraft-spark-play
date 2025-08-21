@@ -63,7 +63,7 @@ const MobileNav = () => {
                 "min-h-[56px] min-w-[56px]",
                 isActive 
                   ? "bg-blue-600 text-white shadow-lg scale-105" 
-                  : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
               )}
             >
               <motion.div

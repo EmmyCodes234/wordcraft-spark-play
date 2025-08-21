@@ -255,11 +255,11 @@ export default function AnagramSolver() {
 
   return (
     <>
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-white">
         <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8">
           <div className="text-center space-y-3">
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-primary bg-clip-text text-transparent leading-tight">Anagram Solver</h1>
-            <p className="text-muted-foreground max-w-2xl mx-auto text-sm sm:text-base lg:text-lg px-2">Find words with the ultimate toolkit.</p>
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-blue-600 leading-tight">Anagram Solver</h1>
+            <p className="text-gray-600 max-w-2xl mx-auto text-sm sm:text-base lg:text-lg px-2">Find words with the ultimate toolkit.</p>
           </div>
           <Card className="max-w-4xl mx-auto border shadow-elegant">
             <CardHeader className="px-4 sm:px-6">

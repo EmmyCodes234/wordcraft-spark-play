@@ -46,14 +46,14 @@ const WordJudge = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-subtle dark:bg-background">
+    <div className="min-h-screen bg-white">
       <div className="container mx-auto px-4 py-16 space-y-12">
         <div className="text-center space-y-4">
-          <Scale className="h-16 w-16 text-primary mx-auto" />
-          <h1 className="text-5xl md:text-6xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+          <Scale className="h-16 w-16 text-blue-600 mx-auto" />
+          <h1 className="text-5xl md:text-6xl font-bold text-blue-600">
             Word Judge
           </h1>
-          <p className="text-muted-foreground text-lg max-w-md mx-auto">
+          <p className="text-gray-600 text-lg max-w-md mx-auto">
             Check if a word is valid according to the CSW24 dictionary. You can enter multiple words separated by spaces.
           </p>
         </div>

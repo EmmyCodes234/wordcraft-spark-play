@@ -296,7 +296,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 theme-transition">
+    <div className="min-h-screen bg-white">
       <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8 max-w-7xl">
         
         {/* Welcome Section */}
@@ -306,10 +306,10 @@ export default function Dashboard() {
           transition={{ duration: 0.6 }}
           className="text-center space-y-3 sm:space-y-4"
         >
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground leading-tight">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 leading-tight">
             Welcome back, {displayName}! 👋
           </h1>
-          <p className="text-sm sm:text-base text-muted-foreground max-w-2xl mx-auto px-2">
+          <p className="text-sm sm:text-base text-gray-600 max-w-2xl mx-auto px-2">
             Ready to expand your word power today?
           </p>
         </motion.div>

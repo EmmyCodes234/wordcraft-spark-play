@@ -6,9 +6,9 @@ import { AdTicker } from "@/components/ui/AdTicker";
 
 export default function Layout() {
   return (
-    <div className="flex flex-col min-h-screen bg-background">
+    <div className="flex flex-col min-h-screen bg-white">
       {/* Sticky Header */}
-      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border/20 shadow-sm">
+      <header className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
         <Navbar />
         <AdTicker />
       </header>
