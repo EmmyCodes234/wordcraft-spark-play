@@ -1,6 +1,7 @@
 // File: src/pages/AnagramSolver.tsx
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useDebounce } from "@/hooks/use-performance";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -114,7 +115,7 @@ export default function AnagramSolver() {
 
   const commonLengths = Array.from({ length: 14 }, (_, i) => i + 2);
 
-  const handleSolve = useCallback(() => {
+  const performSearch = useCallback(() => {
     if (loadingDictionary || dictionaryError) return;
 
     setLoading(true);
@@ -138,6 +139,20 @@ export default function AnagramSolver() {
     qWithoutU, isVowelHeavy, noVowels, sortOrder, frequencyFilter, minProbability, 
     maxProbability, sortByFrequency, loadingDictionary, dictionaryError, componentId
   ]);
+
+  // Debounced search for better performance
+  const debouncedSearch = useDebounce(performSearch, 300);
+
+  // Auto-search when letters change (with debouncing)
+  useEffect(() => {
+    if (letters.trim().length > 0) {
+      debouncedSearch();
+    }
+  }, [letters, debouncedSearch]);
+
+  const handleSolve = () => {
+    performSearch(); // Immediate search when button is clicked
+  };
 
 
   const fetchDefinition = async (word: string) => { /* ... unchanged ... */ };

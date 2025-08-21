@@ -5,6 +5,7 @@ import { ThemeProvider } from '@/context/ThemeContext';
 import { LanguageProvider } from '@/context/LanguageContext';
 import { Toaster } from '@/components/ui/toaster';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
+import { usePageLoadTime } from '@/hooks/use-performance-monitor';
 
 // --- Core Layout & Protection ---
 import Layout from '@/components/layout/Layout';
@@ -35,6 +36,8 @@ import DeckOptionsPage from '@/pages/DeckOptionsPage';
 
 
 function App() {
+  usePageLoadTime(); // Track page load performance
+  
   return (
     <ErrorBoundary>
       <Router>

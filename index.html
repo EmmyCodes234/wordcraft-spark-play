@@ -3,6 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    
+    <!-- Performance optimizations -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="dns-prefetch" href="//fonts.googleapis.com">
+    <link rel="dns-prefetch" href="//fonts.gstatic.com">
+    
+    <!-- Preload critical resources -->
+    <link rel="preload" href="/dictionaries/CSW24.txt" as="fetch" crossorigin>
+    
+    <!-- Resource hints -->
+    <link rel="prefetch" href="/src/pages/AnagramSolver.tsx">
+    <link rel="prefetch" href="/src/pages/QuizMode.tsx">
 
     <title>WordSmith | Your Ultimate Word Game Companion</title>
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">

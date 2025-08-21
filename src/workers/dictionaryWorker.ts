@@ -1,10 +1,12 @@
 // src/workers/dictionaryWorker.ts
 
 // Declare self as DedicatedWorkerGlobalScope for web workers
-declare const self: DedicatedWorkerGlobalScope;
+declare const self: any;
 
 let wordSet: Set<string> | null = null; // Store the dictionary in the worker
 let wordFrequencyMap: Map<string, any> | null = null; // Store frequency data
+let isDictionaryLoading = false; // Prevent multiple simultaneous loads
+let dictionaryLoadPromise: Promise<void> | null = null; // Cache the load promise
 
 // Utility function (copied from AnagramSolver)
 function canMakeWord(word: string, availableLetters: string): boolean {
@@ -66,32 +68,105 @@ function calculateWordFrequency(word: string) {
     return { frequency, gameFrequency, difficulty };
 }
 
+// Optimized dictionary loading function with caching
+async function loadDictionary() {
+    if (wordSet && wordFrequencyMap) {
+        return; // Already loaded
+    }
+    
+    if (isDictionaryLoading && dictionaryLoadPromise) {
+        return dictionaryLoadPromise; // Return existing promise if loading
+    }
+    
+    isDictionaryLoading = true;
+    dictionaryLoadPromise = (async () => {
+        try {
+            console.log("Worker: Starting dictionary load...");
+            
+            // Try to load from cache first
+            let cachedData = null;
+            try {
+                const cached = localStorage.getItem('dictionary_cache');
+                if (cached) {
+                    const parsed = JSON.parse(cached);
+                    const cacheAge = Date.now() - parsed.timestamp;
+                    // Cache for 24 hours
+                    if (cacheAge < 24 * 60 * 60 * 1000) {
+                        cachedData = parsed.data;
+                        console.log("Worker: Using cached dictionary data");
+                    }
+                }
+            } catch (e) {
+                console.log("Worker: Cache read failed, fetching fresh data");
+            }
+            
+            let wordsArray: string[];
+            if (cachedData) {
+                wordsArray = cachedData.words;
+                wordFrequencyMap = new Map(cachedData.frequencyMap);
+            } else {
+                const response = await fetch("/dictionaries/CSW24.txt", {
+                    headers: {
+                        'Cache-Control': 'max-age=86400' // Cache for 24 hours
+                    }
+                });
+                console.log("Worker: Dictionary fetch response status:", response.status);
+                const text = await response.text();
+                console.log("Worker: Dictionary text length:", text.length);
+                wordsArray = text.split("\n").map((w) => w.trim().toUpperCase());
+                console.log("Worker: Words array length:", wordsArray.length);
+                
+                // Calculate frequency data for all words (optimized)
+                wordFrequencyMap = new Map();
+                const batchSize = 2000; // Increased batch size for better performance
+                for (let i = 0; i < wordsArray.length; i += batchSize) {
+                    const batch = wordsArray.slice(i, i + batchSize);
+                    batch.forEach(word => {
+                        if (word.length >= 2) {
+                            wordFrequencyMap!.set(word, calculateWordFrequency(word));
+                        }
+                    });
+                    // Yield control less frequently for better performance
+                    if (i % (batchSize * 20) === 0) {
+                        await new Promise(resolve => setTimeout(resolve, 0));
+                    }
+                }
+                
+                // Cache the processed data
+                try {
+                    const cacheData = {
+                        words: wordsArray,
+                        frequencyMap: Array.from(wordFrequencyMap.entries()),
+                        timestamp: Date.now()
+                    };
+                    localStorage.setItem('dictionary_cache', JSON.stringify(cacheData));
+                    console.log("Worker: Dictionary data cached");
+                } catch (e) {
+                    console.log("Worker: Failed to cache dictionary data");
+                }
+            }
+            
+            wordSet = new Set(wordsArray);
+            console.log("Worker: Dictionary loaded with", wordsArray.length, "words");
+        } catch (error) {
+            console.error("Failed to load CSW24 word list in worker:", error);
+            throw error;
+        } finally {
+            isDictionaryLoading = false;
+        }
+    })();
+    
+    return dictionaryLoadPromise;
+}
+
 self.onmessage = async (event) => {
     // Message to load the dictionary initially
     if (event.data.type === 'loadDictionary') {
         try {
-            console.log("Worker: Starting dictionary load...");
-            const response = await fetch("/dictionaries/CSW24.txt");
-            console.log("Worker: Dictionary fetch response status:", response.status);
-            const text = await response.text();
-            console.log("Worker: Dictionary text length:", text.length);
-            const wordsArray = text.split("\n").map((w) => w.trim().toUpperCase());
-            console.log("Worker: Words array length:", wordsArray.length);
-            wordSet = new Set(wordsArray);
-            
-            // Calculate frequency data for all words
-            wordFrequencyMap = new Map();
-            wordsArray.forEach(word => {
-                if (word.length >= 2) {
-                    wordFrequencyMap!.set(word, calculateWordFrequency(word));
-                }
-            });
-            
-            console.log("Worker: Sending dictionary loaded message with", wordsArray.length, "words");
-            self.postMessage({ type: 'dictionaryLoaded', wordSet: wordsArray, wordCount: wordSet.size });
-
+            await loadDictionary();
+            const wordsArray = Array.from(wordSet!);
+            self.postMessage({ type: 'dictionaryLoaded', wordSet: wordsArray, wordCount: wordSet!.size });
         } catch (error) {
-            console.error("Failed to load CSW24 word list in worker:", error);
             self.postMessage({ type: 'error', message: 'Failed to load dictionary' });
         }
     }
