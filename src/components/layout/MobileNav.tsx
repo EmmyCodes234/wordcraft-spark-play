@@ -6,7 +6,8 @@ import {
   BookOpen, 
   Search, 
   Zap, 
-  User 
+  User,
+  Settings
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -39,10 +40,10 @@ const MobileNav = () => {
       shortLabel: 'Anagram'
     },
     {
-      path: '/profile',
-      label: 'Profile',
-      icon: User,
-      shortLabel: 'Profile'
+      path: '/settings',
+      label: 'Settings',
+      icon: Settings,
+      shortLabel: 'Settings'
     }
   ];
 
