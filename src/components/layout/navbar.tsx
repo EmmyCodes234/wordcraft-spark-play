@@ -23,15 +23,45 @@ export default function Navbar() {
   const toggleMobile = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log('Hamburger menu clicked');
-    setMobileOpen(!mobileOpen);
+    console.log('Hamburger menu clicked, current state:', mobileOpen);
+    setMobileOpen(prev => {
+      console.log('Setting mobile menu to:', !prev);
+      return !prev;
+    });
   };
-  const closeMobile = () => setMobileOpen(false);
+  
+  const closeMobile = () => {
+    console.log('Closing mobile menu');
+    setMobileOpen(false);
+  };
 
-  // Close mobile menu when clicking outside or on route change
+  // Close mobile menu when route changes
   useEffect(() => {
+    console.log('Route changed, closing mobile menu');
     setMobileOpen(false);
   }, [location.pathname]);
+
+  // Close mobile menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      const navbar = document.querySelector('nav');
+      const mobileMenuButton = document.querySelector('[aria-label="Toggle menu"]');
+      
+      if (mobileOpen && navbar && !navbar.contains(target) && !mobileMenuButton?.contains(target)) {
+        console.log('Clicked outside navbar, closing mobile menu');
+        closeMobile();
+      }
+    };
+
+    if (mobileOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [mobileOpen]);
 
   // Prevent body scroll when mobile menu is open
   useEffect(() => {
@@ -78,7 +108,14 @@ export default function Navbar() {
             to={user ? "/dashboard" : "/"}
             className="flex items-center gap-2 text-lg sm:text-xl font-bold text-primary tracking-tight hover:opacity-90 transition-opacity py-2 px-2"
             onClick={(e) => {
-              console.log('Logo clicked');
+              // Only prevent default if mobile menu is open to avoid conflicts
+              if (mobileOpen) {
+                console.log('Logo clicked while menu open - preventing navigation');
+                e.preventDefault();
+                closeMobile();
+                return;
+              }
+              console.log('Logo clicked - allowing navigation');
             }}
           >
             <span className="text-base sm:text-lg lg:text-xl text-gray-900">WordSmith</span>
@@ -156,11 +193,13 @@ export default function Navbar() {
         {user && (
           <button
             onClick={toggleMobile}
-            className="lg:hidden p-3 rounded-lg hover:bg-muted/50 transition-colors relative z-10 min-w-[44px] min-h-[44px] flex items-center justify-center"
+            className="lg:hidden p-3 rounded-lg hover:bg-gray-100 transition-colors relative z-50 min-w-[48px] min-h-[48px] flex items-center justify-center touch-manipulation"
             aria-label="Toggle menu"
+            aria-expanded={mobileOpen}
             type="button"
+            style={{ WebkitTapHighlightColor: 'transparent' }}
           >
-            {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
         )}
       </div>
@@ -174,7 +213,12 @@ export default function Navbar() {
               "lg:hidden fixed inset-0 bg-black/20 backdrop-blur-sm z-40 transition-all duration-300",
               mobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
             )}
-            onClick={closeMobile}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              console.log('Backdrop clicked - closing menu');
+              closeMobile();
+            }}
             aria-hidden="true"
           />
           
@@ -187,6 +231,10 @@ export default function Navbar() {
             role="dialog"
             aria-modal="true"
             aria-label="Mobile navigation menu"
+            onClick={(e) => {
+              // Prevent clicks inside the menu from bubbling up to the backdrop
+              e.stopPropagation();
+            }}
           >
             <div className="px-4 py-4 space-y-2 max-w-7xl mx-auto">
               {navLinks.map((link) => {
