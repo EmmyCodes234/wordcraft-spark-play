@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { Scale, CheckCircle2, XCircle } from "lucide-react";
+import { Scale, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { motion, AnimatePresence } from "framer-motion";
+import { LoadingSpinner } from "@/components/ui/loading";
+import { ErrorState } from "@/components/ui/error-boundary";
 
 const WordJudge = () => {
   const [words, setWords] = useState("");
@@ -14,7 +17,11 @@ const WordJudge = () => {
   useEffect(() => {
     const fetchWords = async () => {
       try {
+        setDictStatus("loading");
         const response = await fetch("/dictionaries/CSW24.txt");
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
         const text = await response.text();
         const wordsArray = text.split("\n").map((w) => w.trim().toUpperCase());
         setWordSet(new Set(wordsArray));
@@ -31,9 +38,10 @@ const WordJudge = () => {
     if (!words.trim() || wordSet.size === 0) return;
     setLoading(true);
     setResult(null);
-    // The 'words' state is already uppercase, but we trim and split
-    const wordList = words.trim().split(/\s+/);
+    
+    // Simulate processing time for better UX
     setTimeout(() => {
+      const wordList = words.trim().split(/\s+/);
       const allValid = wordList.every(word => wordSet.has(word));
       setResult(allValid ? "acceptable" : "not-acceptable");
       setLoading(false);
@@ -45,60 +53,174 @@ const WordJudge = () => {
     setResult(null);
   };
 
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !loading && dictStatus === "loaded") {
+      handleJudge();
+    }
+  };
+
+  if (dictStatus === "loading") {
+    return (
+      <div className="min-h-screen bg-background transition-colors duration-300">
+        <div className="container mx-auto px-4 py-16 space-y-12">
+          <div className="text-center space-y-4">
+            <Scale className="h-16 w-16 text-primary mx-auto" />
+            <h1 className="text-5xl md:text-6xl font-bold text-primary">
+              Word Judge
+            </h1>
+            <p className="text-muted-foreground text-lg max-w-md mx-auto">
+              Check if a word is valid according to the CSW24 dictionary.
+            </p>
+          </div>
+          
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center space-y-4">
+              <LoadingSpinner size="lg" />
+              <p className="text-muted-foreground">Loading dictionary...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (dictStatus === "error") {
+    return (
+      <div className="min-h-screen bg-background transition-colors duration-300">
+        <div className="container mx-auto px-4 py-16 space-y-12">
+          <div className="text-center space-y-4">
+            <Scale className="h-16 w-16 text-primary mx-auto" />
+            <h1 className="text-5xl md:text-6xl font-bold text-primary">
+              Word Judge
+            </h1>
+          </div>
+          
+          <div className="max-w-xl mx-auto">
+            <ErrorState
+              title="Dictionary Loading Failed"
+              message="Unable to load the CSW24 dictionary. Please check your internet connection and try refreshing the page."
+              onRetry={() => window.location.reload()}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background transition-colors duration-300">
       <div className="container mx-auto px-4 py-16 space-y-12">
-        <div className="text-center space-y-4">
-                  <Scale className="h-16 w-16 text-primary mx-auto" />
-        <h1 className="text-5xl md:text-6xl font-bold text-primary">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="text-center space-y-4"
+        >
+          <Scale className="h-16 w-16 text-primary mx-auto" />
+          <h1 className="text-5xl md:text-6xl font-bold text-primary">
             Word Judge
           </h1>
-          <p className="text-gray-600 text-lg max-w-md mx-auto">
+          <p className="text-muted-foreground text-lg max-w-md mx-auto">
             Check if a word is valid according to the CSW24 dictionary. You can enter multiple words separated by spaces.
           </p>
-        </div>
+        </motion.div>
 
-        {dictStatus === "loading" && <div className="text-center text-yellow-500">Loading dictionary...</div>}
-        {dictStatus === "error" && <div className="text-center text-red-500">Failed to load dictionary.</div>}
-
-        {dictStatus === "loaded" && (
-          <div className="max-w-xl mx-auto space-y-6">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="max-w-xl mx-auto space-y-6"
+        >
+          <div className="space-y-4">
             <Input
               placeholder="ENTER A WORD..."
               value={words}
-              // --- FIX: Convert input to uppercase on change ---
               onChange={(e) => setWords((e.target.value || '').toUpperCase())}
-              onKeyPress={(e) => e.key === 'Enter' && handleJudge()}
-              // --- FIX: Added 'uppercase' class for consistent styling ---
-              className="text-lg p-6 text-center font-mono tracking-widest uppercase"
+              onKeyPress={handleKeyPress}
+              className="text-lg p-6 text-center font-mono tracking-widest uppercase border-2 focus:border-primary"
               disabled={loading}
             />
+            
             <div className="flex gap-4 justify-center">
-              <Button onClick={handleJudge} disabled={loading || !words.trim()} size="lg">
-                {loading ? "Checking..." : "Judge Word(s)"}
+              <Button 
+                onClick={handleJudge} 
+                disabled={loading || !words.trim()} 
+                size="lg"
+                className="min-w-[140px]"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Checking...
+                  </>
+                ) : (
+                  "Judge Word(s)"
+                )}
               </Button>
-              <Button variant="outline" onClick={handleClear} size="lg">Clear</Button>
+              <Button 
+                variant="outline" 
+                onClick={handleClear} 
+                size="lg"
+                disabled={loading}
+              >
+                Clear
+              </Button>
             </div>
-
-            {result && (
-              <Card className="text-center mt-6 animate-fade-in">
-                <CardContent className="py-8 flex flex-col items-center gap-4">
-                  {result === "acceptable" ? (
-                    <>
-                      <CheckCircle2 className="text-green-500 w-12 h-12" />
-                      <p className="text-xl text-green-600 font-semibold">Acceptable!</p>
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="text-red-500 w-12 h-12" />
-                      <p className="text-xl text-red-600 font-semibold">Not Acceptable</p>
-                    </>
-                  )}
-                </CardContent>
-              </Card>
-            )}
           </div>
-        )}
+
+          <AnimatePresence mode="wait">
+            {result && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.3 }}
+              >
+                <Card className="border-0 shadow-lg">
+                  <CardContent className="py-8 flex flex-col items-center gap-4">
+                    {result === "acceptable" ? (
+                      <>
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          transition={{ delay: 0.1, type: "spring", stiffness: 200 }}
+                        >
+                          <CheckCircle2 className="text-success w-12 h-12" />
+                        </motion.div>
+                        <motion.p 
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.2 }}
+                          className="text-xl text-success font-semibold"
+                        >
+                          Acceptable!
+                        </motion.p>
+                      </>
+                    ) : (
+                      <>
+                        <motion.div
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          transition={{ delay: 0.1, type: "spring", stiffness: 200 }}
+                        >
+                          <XCircle className="text-destructive w-12 h-12" />
+                        </motion.div>
+                        <motion.p 
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.2 }}
+                          className="text-xl text-destructive font-semibold"
+                        >
+                          Not Acceptable
+                        </motion.p>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
       </div>
     </div>
   );

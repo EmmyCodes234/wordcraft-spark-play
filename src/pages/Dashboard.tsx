@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { AuthContext } from "../context/AuthContext";
 import { useTheme } from "@/context/ThemeContext";
-import { CheckCircle, TrendingUp, Target, Flame, BookOpen, ArrowRight } from "lucide-react";
+import { CheckCircle, TrendingUp, Target, Flame, BookOpen, ArrowRight, ChevronDown, ChevronUp } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { Link } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { DashboardSkeleton } from "@/components/ui/loading";
 
 // Helper function to calculate word score
 const letterScores: { [key: string]: number } = {
@@ -46,7 +47,7 @@ const WordOfTheDay = ({ wordSet }: { wordSet: Set<string> }) => {
   }, [wordSet]);
 
   return (
-    <div className="text-center space-y-2">
+    <div className="text-center space-y-3">
       <p className="text-2xl sm:text-3xl font-bold text-primary uppercase tracking-wider">
         {wordData.word}
       </p>
@@ -69,16 +70,16 @@ const QuickActionCard = ({
   to: string; 
   gradient: string; 
 }) => (
-  <Card className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-1 theme-transition">
-    <CardContent className="p-4 sm:p-6">
-      <div className="flex items-start gap-3 sm:gap-4">
-        <div className={`p-2.5 sm:p-3 rounded-lg ${gradient} text-white flex-shrink-0`}>
-          <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
+  <Card className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-1 theme-transition border-0 shadow-sm">
+    <CardContent className="p-6">
+      <div className="flex items-start gap-4">
+        <div className={`p-3 rounded-xl ${gradient} text-white flex-shrink-0 shadow-md`}>
+          <Icon className="w-5 h-5" />
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-sm sm:text-base mb-2 text-foreground leading-tight">{title}</h3>
-          <p className="text-xs sm:text-sm text-muted-foreground mb-4 line-clamp-2 leading-relaxed">{description}</p>
-          <Button asChild size="sm" variant="outline" className="w-full h-10 sm:h-9 sm:w-auto">
+          <h3 className="font-semibold text-base mb-2 text-foreground leading-tight">{title}</h3>
+          <p className="text-sm text-muted-foreground mb-4 line-clamp-2 leading-relaxed">{description}</p>
+          <Button asChild size="sm" variant="outline" className="w-full h-10">
             <Link to={to} className="flex items-center justify-center gap-2">
               Start
               <ArrowRight className="w-3 h-3" />
@@ -108,17 +109,53 @@ const StatCard = ({
   textColor: string; 
   subtitle: string; 
 }) => (
-  <Card className={`${gradient} theme-transition`}>
-    <CardContent className="p-4 sm:p-6 text-center space-y-2 sm:space-y-3">
+  <Card className={`${gradient} theme-transition border-0 shadow-sm`}>
+    <CardContent className="p-6 text-center space-y-3">
       <div className="flex items-center justify-center gap-2">
         <Icon className={`w-5 h-5 ${iconColor}`} />
-        <p className={`text-sm sm:text-base font-medium ${textColor}`}>{title}</p>
+        <p className={`text-sm font-medium ${textColor}`}>{title}</p>
       </div>
-      <p className={`text-2xl sm:text-3xl lg:text-4xl font-bold ${textColor}`}>{value}</p>
-      <p className={`text-xs sm:text-sm ${textColor} opacity-80`}>{subtitle}</p>
+      <p className={`text-3xl lg:text-4xl font-bold ${textColor}`}>{value}</p>
+      <p className={`text-xs ${textColor} opacity-80`}>{subtitle}</p>
     </CardContent>
   </Card>
 );
+
+// Collapsible Section Component
+const CollapsibleSection = ({ 
+  title, 
+  children, 
+  defaultExpanded = false 
+}: { 
+  title: string; 
+  children: React.ReactNode; 
+  defaultExpanded?: boolean; 
+}) => {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+
+  return (
+    <Card className="border-0 shadow-sm">
+      <CardHeader className="pb-3">
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="flex items-center justify-between w-full text-left"
+        >
+          <CardTitle className="text-lg font-semibold text-foreground">{title}</CardTitle>
+          {isExpanded ? (
+            <ChevronUp className="w-5 h-5 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-muted-foreground" />
+          )}
+        </button>
+      </CardHeader>
+      {isExpanded && (
+        <CardContent className="pt-0">
+          {children}
+        </CardContent>
+      )}
+    </Card>
+  );
+};
 
 export default function Dashboard() {
   const { user } = useContext(AuthContext);
@@ -288,57 +325,57 @@ export default function Dashboard() {
   ];
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   return (
-          <div className="min-h-screen bg-background transition-colors duration-300">
-      <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8 max-w-7xl">
+    <div className="min-h-screen bg-background transition-colors duration-300">
+      <div className="container mx-auto px-4 sm:px-6 py-8 space-y-8 max-w-6xl">
         
         {/* Welcome Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="text-center space-y-3 sm:space-y-4"
+          className="text-center space-y-4"
         >
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 leading-tight">
+          <h1 className="text-3xl lg:text-4xl font-bold text-foreground leading-tight">
             Welcome back, {displayName}! 👋
           </h1>
-          <p className="text-sm sm:text-base text-gray-600 max-w-2xl mx-auto px-2">
+          <p className="text-base text-muted-foreground max-w-2xl mx-auto">
             Ready to expand your word power today?
           </p>
         </motion.div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+        {/* Primary Stats - Reduced to 3 key metrics */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.1 }}
+          className="grid grid-cols-1 sm:grid-cols-3 gap-6"
+        >
           {statCards.map((stat, index) => (
             <motion.div 
               key={stat.title}
               initial={{ opacity: 0, y: 20 }} 
               animate={{ opacity: 1, y: 0 }} 
-              transition={{ duration: 0.6, delay: 0.1 + index * 0.1 }}
-              className={index === 2 ? "sm:col-span-2 lg:col-span-1" : ""}
+              transition={{ duration: 0.6, delay: 0.2 + index * 0.1 }}
             >
               <StatCard {...stat} />
             </motion.div>
           ))}
-        </div>
+        </motion.div>
 
-        {/* Word of the Day */}
+        {/* Word of the Day - Prominent placement */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.4 }}
         >
-          <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20 theme-transition">
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center justify-center gap-2 text-lg sm:text-xl text-foreground">
-                <CheckCircle className="w-5 h-5 text-primary" />
+          <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20 theme-transition border-0 shadow-sm">
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center justify-center gap-2 text-xl text-foreground">
+                <CheckCircle className="w-6 h-6 text-primary" />
                 Word of the Day
               </CardTitle>
             </CardHeader>
@@ -348,26 +385,26 @@ export default function Dashboard() {
           </Card>
         </motion.div>
 
-        {/* Quick Actions */}
+        {/* Quick Actions - Collapsible for better organization */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.5 }}
-          className="space-y-4"
         >
-          <h2 className="text-lg sm:text-xl font-semibold text-center sm:text-left text-foreground">Quick Actions</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {quickActions.map((action, index) => (
-              <motion.div
-                key={action.title}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.6 + index * 0.1 }}
-              >
-                <QuickActionCard {...action} />
-              </motion.div>
-            ))}
-          </div>
+          <CollapsibleSection title="Quick Actions" defaultExpanded={true}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {quickActions.map((action, index) => (
+                <motion.div
+                  key={action.title}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.6 + index * 0.1 }}
+                >
+                  <QuickActionCard {...action} />
+                </motion.div>
+              ))}
+            </div>
+          </CollapsibleSection>
         </motion.div>
       </div>
     </div>
