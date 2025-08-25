@@ -27,20 +27,49 @@ const WordOfTheDay = ({ wordSet }: { wordSet: Set<string> }) => {
   useEffect(() => {
     if (wordSet.size === 0) return;
 
-    const eligibleWords = Array.from(wordSet).filter(
-      w => w.length >= 7 && w.length <= 15
-    );
+    // Create different word categories for variety
+    const shortWords = Array.from(wordSet).filter(w => w.length >= 4 && w.length <= 6);
+    const mediumWords = Array.from(wordSet).filter(w => w.length >= 7 && w.length <= 9);
+    const longWords = Array.from(wordSet).filter(w => w.length >= 10 && w.length <= 12);
+    const veryLongWords = Array.from(wordSet).filter(w => w.length >= 13 && w.length <= 15);
 
-    if (eligibleWords.length === 0) {
-      setWordData({ word: "NO WORD FOUND", points: 0 });
-      return;
+    // Use date-based seed for consistent daily selection
+    const today = new Date();
+    const seed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
+    
+    // Simple seeded random number generator
+    const seededRandom = (seed: number) => {
+      const x = Math.sin(seed) * 10000;
+      return x - Math.floor(x);
+    };
+
+    // Select category based on day of week for variety
+    const dayOfWeek = today.getDay();
+    let selectedCategory: string[];
+    
+    if (dayOfWeek === 0 || dayOfWeek === 6) { // Weekend - longer words
+      selectedCategory = veryLongWords.length > 0 ? veryLongWords : longWords;
+    } else if (dayOfWeek === 2 || dayOfWeek === 4) { // Tuesday/Thursday - medium words
+      selectedCategory = mediumWords.length > 0 ? mediumWords : shortWords;
+    } else { // Other weekdays - mix of short and long
+      selectedCategory = seededRandom(seed) > 0.5 ? shortWords : longWords;
     }
 
-    const today = new Date();
-    const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / (1000 * 60 * 60 * 24));
-    const wordIndex = (today.getFullYear() * 366 + dayOfYear) % eligibleWords.length;
-    
-    const dailyWord = eligibleWords[wordIndex];
+    // Fallback to any available category
+    if (selectedCategory.length === 0) {
+      if (shortWords.length > 0) selectedCategory = shortWords;
+      else if (mediumWords.length > 0) selectedCategory = mediumWords;
+      else if (longWords.length > 0) selectedCategory = longWords;
+      else if (veryLongWords.length > 0) selectedCategory = veryLongWords;
+      else {
+        setWordData({ word: "NO WORD FOUND", points: 0 });
+        return;
+      }
+    }
+
+    // Select word from category using seeded random
+    const wordIndex = Math.floor(seededRandom(seed) * selectedCategory.length);
+    const dailyWord = selectedCategory[wordIndex];
     const score = calculateWordScore(dailyWord);
 
     setWordData({ word: dailyWord, points: score });
@@ -280,7 +309,7 @@ export default function Dashboard() {
     },
     {
       title: "Study Mode",
-      description: "Practice with flashcards and quizzes",
+      description: "Practice with anagram quizzes and challenges",
       icon: BookOpen,
       to: "/quiz",
       gradient: "bg-gradient-to-br from-green-500 to-green-600"

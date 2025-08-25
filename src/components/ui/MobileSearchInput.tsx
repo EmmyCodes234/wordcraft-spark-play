@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, X, Mic } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
@@ -40,11 +40,6 @@ const MobileSearchInput: React.FC<MobileSearchInputProps> = ({
     inputRef.current?.focus();
   };
 
-  const handleVoiceSearch = () => {
-    // Voice search functionality can be implemented here
-    console.log('Voice search not implemented yet');
-  };
-
   useEffect(() => {
     if (autoFocus && inputRef.current) {
       // Small delay to ensure the component is mounted
@@ -82,22 +77,12 @@ const MobileSearchInput: React.FC<MobileSearchInputProps> = ({
             placeholder={placeholder}
             disabled={disabled}
             className={cn(
-              "search-input w-full pl-12 pr-20",
+              "mobile-search w-full pl-12 pr-16",
               "focus:ring-2 focus:ring-primary focus:border-primary",
               "disabled:opacity-50 disabled:cursor-not-allowed",
               isFocused && "border-primary shadow-lg"
             )}
           />
-
-          {/* Voice Search Button */}
-          <button
-            type="button"
-            onClick={handleVoiceSearch}
-            className="absolute right-12 top-1/2 transform -translate-y-1/2 p-2 text-muted-foreground hover:text-foreground transition-colors"
-            disabled={disabled}
-          >
-            <Mic className="w-5 h-5" />
-          </button>
 
           {/* Clear Button */}
           <AnimatePresence>
@@ -105,7 +90,7 @@ const MobileSearchInput: React.FC<MobileSearchInputProps> = ({
               <motion.button
                 type="button"
                 onClick={handleClear}
-                className="absolute right-4 top-1/2 transform -translate-y-1/2 p-2 text-muted-foreground hover:text-foreground transition-colors"
+                className="mobile-haptic absolute right-4 top-1/2 transform -translate-y-1/2 p-2 text-muted-foreground hover:text-foreground transition-colors"
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.8 }}
@@ -123,8 +108,8 @@ const MobileSearchInput: React.FC<MobileSearchInputProps> = ({
           <motion.button
             type="submit"
             className={cn(
-              "absolute right-2 top-1/2 transform -translate-y-1/2",
-              "bg-primary text-primary-foreground px-4 py-2 rounded-lg",
+              "mobile-button absolute right-2 top-1/2 transform -translate-y-1/2",
+              "bg-primary text-primary-foreground px-4 py-2 rounded-xl",
               "font-semibold text-sm",
               "hover:bg-primary/90 transition-colors",
               "disabled:opacity-50 disabled:cursor-not-allowed"
@@ -142,7 +127,7 @@ const MobileSearchInput: React.FC<MobileSearchInputProps> = ({
       <AnimatePresence>
         {isFocused && (
           <motion.div
-            className="absolute inset-0 border-2 border-primary rounded-xl pointer-events-none"
+            className="absolute inset-0 border-2 border-primary rounded-2xl pointer-events-none"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

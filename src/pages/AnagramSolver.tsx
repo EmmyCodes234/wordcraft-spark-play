@@ -19,6 +19,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import MobileSearchInput from "@/components/ui/MobileSearchInput";
 import WordTile from "@/components/ui/WordTile";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { usePageSession } from "@/context/SessionContext";
+import { useToast } from '@/hooks/use-toast';
+import { dictionaryService } from '@/lib/dictionaryService';
 
 const WORDNIK_API_KEY = "q6ozgglz09jnvewsiy4cvvaywtzey98sz3a108u6dmnvystl9";
 type Definition = { text: string; partOfSpeech: string; };
@@ -28,36 +31,45 @@ const LOAD_MORE_AMOUNT = 200;
 
 export default function AnagramSolver() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const isMobile = useIsMobile();
-  const [letters, setLetters] = useState("");
-  const [results, setResults] = useState<any[]>([]);
+  const { session, setSession } = usePageSession('anagramSolver');
+  
+  // Initialize state from session or defaults
+  const [letters, setLetters] = useState(session?.letters || "");
+  const [results, setResults] = useState<any[]>(session?.results || []);
   const [loading, setLoading] = useState(false);
   const [loadingDictionary, setLoadingDictionary] = useState(true);
   const [dictionaryError, setDictionaryError] = useState<string | null>(null);
 
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
-  const [selectedLengths, setSelectedLengths] = useState<number[]>([]);
-  const [allowPartial, setAllowPartial] = useState(true);
+  // Pre-loaded dictionary data for instant search
+  const [dictionaryWords, setDictionaryWords] = useState<string[]>([]);
+  const [frequencyMap, setFrequencyMap] = useState<Map<string, any>>(new Map());
+  const [isDictionaryReady, setIsDictionaryReady] = useState(false);
 
-  const [startsWith, setStartsWith] = useState("");
-  const [endsWith, setEndsWith] = useState("");
-  const [contains, setContains] = useState("");
-  const [containsAll, setContainsAll] = useState("");
-  const [qWithoutU, setQWithoutU] = useState(false);
-  const [isVowelHeavy, setIsVowelHeavy] = useState(false);
-  const [noVowels, setNoVowels] = useState(false);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">(session?.sortOrder || "desc");
+  const [selectedLengths, setSelectedLengths] = useState<number[]>(session?.selectedLengths || []);
+  const [allowPartial, setAllowPartial] = useState(session?.allowPartial !== false);
+
+  const [startsWith, setStartsWith] = useState(session?.startsWith || "");
+  const [endsWith, setEndsWith] = useState(session?.endsWith || "");
+  const [contains, setContains] = useState(session?.contains || "");
+  const [containsAll, setContainsAll] = useState(session?.containsAll || "");
+  const [qWithoutU, setQWithoutU] = useState(session?.qWithoutU || false);
+  const [isVowelHeavy, setIsVowelHeavy] = useState(session?.isVowelHeavy || false);
+  const [noVowels, setNoVowels] = useState(session?.noVowels || false);
   
   // Probability filters
-  const [frequencyFilter, setFrequencyFilter] = useState<'all' | 'common' | 'uncommon' | 'rare' | 'expert'>('all');
-  const [minProbability, setMinProbability] = useState(0);
-  const [maxProbability, setMaxProbability] = useState(100);
-  const [sortByFrequency, setSortByFrequency] = useState(false);
+  const [frequencyFilter, setFrequencyFilter] = useState<'all' | 'common' | 'uncommon' | 'rare' | 'expert'>(session?.frequencyFilter || 'all');
+  const [minProbability, setMinProbability] = useState(session?.minProbability || 0);
+  const [maxProbability, setMaxProbability] = useState(session?.maxProbability || 100);
+  const [sortByFrequency, setSortByFrequency] = useState(session?.sortByFrequency || false);
 
   const [showSavePrompt, setShowSavePrompt] = useState(false);
   const [deckName, setDeckName] = useState("");
   const [makeDeckPublic, setMakeDeckPublic] = useState(false);
   const [publicDescription, setPublicDescription] = useState("");
-  const [saveDeckMessage, setSaveDeckMessage] = useState<string | null>(null); // For save deck feedback
+  const [saveDeckMessage, setSaveDeckMessage] = useState<string | null>(null);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
@@ -68,28 +80,153 @@ export default function AnagramSolver() {
   const [displayLimit, setDisplayLimit] = useState(INITIAL_DISPLAY_LIMIT);
 
   const workerRef = useRef<Worker | null>(null);
-  const componentId = useRef(Date.now().toString()).current;
+  const componentId = useRef(`anagram-${Math.random().toString(36).substr(2, 9)}`);
 
-  // Web Worker for dictionary loading and search logic
+  // Pre-load dictionary data for instant search
   useEffect(() => {
-    workerRef.current = new Worker(new URL('../workers/dictionaryWorker.ts', import.meta.url));
+    const loadDictionaryData = async () => {
+      try {
+        setLoadingDictionary(true);
+        
+        // Try to get cached data first
+        const cachedWords = await dictionaryService.getCachedWords();
+        const cachedFrequencyMap = await dictionaryService.getCachedFrequencyMap();
+        
+        if (cachedWords.length > 0) {
+          setDictionaryWords(cachedWords);
+          setFrequencyMap(cachedFrequencyMap);
+          setIsDictionaryReady(true);
+          setLoadingDictionary(false);
+          console.log('AnagramSolver: Dictionary loaded from cache, ready for instant search');
+          return;
+        }
+        
+        // If no cache, load dictionary service
+        await dictionaryService.loadDictionary();
+        
+        if (dictionaryService.isDictionaryLoaded()) {
+          const words = await dictionaryService.getCachedWords();
+          const freqMap = await dictionaryService.getCachedFrequencyMap();
+          
+          setDictionaryWords(words);
+          setFrequencyMap(freqMap);
+          setIsDictionaryReady(true);
+          setLoadingDictionary(false);
+          console.log('AnagramSolver: Dictionary loaded and ready for instant search');
+        } else {
+          // Fallback to worker
+          workerRef.current = await dictionaryService.getWorker();
+          
+          workerRef.current.onmessage = (event) => {
+            if (event.data.type === 'dictionaryLoaded') {
+              setLoadingDictionary(false);
+              setIsDictionaryReady(true);
+            } else if (event.data.type === 'searchResults' && event.data.componentId === componentId.current) {
+              setResults(event.data.results);
+              setLoading(false);
+              setDisplayLimit(INITIAL_DISPLAY_LIMIT);
+            } else if (event.data.type === 'error') {
+              setDictionaryError(event.data.message);
+              setLoadingDictionary(false);
+              setLoading(false);
+            }
+          };
 
-    workerRef.current.onmessage = (event) => {
-      if (event.data.type === 'dictionaryLoaded') {
+          workerRef.current.postMessage({ type: 'loadDictionary' });
+        }
+      } catch (error) {
+        console.error('AnagramSolver: Failed to load dictionary:', error);
+        setDictionaryError('Failed to load dictionary. Please refresh the page.');
         setLoadingDictionary(false);
-      } else if (event.data.type === 'searchResults' && event.data.componentId === componentId) {
-        setResults(event.data.results);
-        setLoading(false);
-        setDisplayLimit(INITIAL_DISPLAY_LIMIT); // Reset display limit on new search
-      } else if (event.data.type === 'error') {
-        setDictionaryError(event.data.message);
-        setLoadingDictionary(false);
-        setLoading(false);
       }
     };
 
-    workerRef.current.postMessage({ type: 'loadDictionary' });
-    setLoadingDictionary(true);
+    loadDictionaryData();
+
+    return () => {
+      if (workerRef.current) {
+        workerRef.current.terminate();
+      }
+    };
+  }, []);
+
+  // Save session data whenever relevant state changes
+  useEffect(() => {
+    const sessionData = {
+      letters,
+      results,
+      sortOrder,
+      selectedLengths,
+      allowPartial,
+      startsWith,
+      endsWith,
+      contains,
+      containsAll,
+      qWithoutU,
+      isVowelHeavy,
+      noVowels,
+      frequencyFilter,
+      minProbability,
+      maxProbability,
+      sortByFrequency,
+    };
+    setSession(sessionData);
+  }, [
+    letters, results, sortOrder, selectedLengths, allowPartial,
+    startsWith, endsWith, contains, containsAll, qWithoutU, isVowelHeavy, noVowels,
+    frequencyFilter, minProbability, maxProbability, sortByFrequency
+    // Removed setSession from dependencies to prevent infinite loop
+  ]);
+
+  // Web Worker for dictionary loading and search logic
+  useEffect(() => {
+    const initializeDictionary = async () => {
+      try {
+        setLoadingDictionary(true);
+        
+        // Use shared dictionary service
+        await dictionaryService.loadDictionary();
+        
+        if (dictionaryService.isDictionaryLoaded()) {
+          setLoadingDictionary(false);
+          console.log('AnagramSolver: Dictionary loaded from cache');
+        } else {
+          // Fallback to worker if needed
+          workerRef.current = await dictionaryService.getWorker();
+          
+          workerRef.current.onmessage = (event) => {
+            if (event.data.type === 'dictionaryLoaded') {
+              setLoadingDictionary(false);
+            } else if (event.data.type === 'searchResults' && event.data.componentId === componentId.current) {
+              setResults(event.data.results);
+              setLoading(false);
+              setDisplayLimit(INITIAL_DISPLAY_LIMIT);
+              
+              // Show performance feedback for worker searches
+              if (event.data.searchTime > 1000) {
+                toast({
+                  title: "Search Complete",
+                  description: `Found ${event.data.resultCount} words in ${event.data.searchTime}ms`,
+                  duration: 2000
+                });
+              }
+            } else if (event.data.type === 'error') {
+              setDictionaryError(event.data.message);
+              setLoadingDictionary(false);
+              setLoading(false);
+            }
+          };
+
+          workerRef.current.postMessage({ type: 'loadDictionary' });
+        }
+      } catch (error) {
+        console.error('AnagramSolver: Failed to initialize dictionary:', error);
+        setDictionaryError('Failed to load dictionary. Please refresh the page.');
+        setLoadingDictionary(false);
+      }
+    };
+
+    initializeDictionary();
 
     return () => {
       if (workerRef.current) {
@@ -116,46 +253,257 @@ export default function AnagramSolver() {
   const commonLengths = Array.from({ length: 14 }, (_, i) => i + 2);
 
   const performSearch = useCallback(() => {
-    if (loadingDictionary || dictionaryError) return;
+    if (!isDictionaryReady || dictionaryError) return;
 
+    const searchStartTime = Date.now();
     setLoading(true);
     setResults([]);
-    setDisplayLimit(INITIAL_DISPLAY_LIMIT); // Reset display limit for new search
+    setDisplayLimit(INITIAL_DISPLAY_LIMIT);
 
-    workerRef.current?.postMessage({
-      type: 'searchWords',
-      componentId: componentId,
-      searchParams: {
-        searchType: 'anagram',
-        letters,
-        allowPartial, selectedLengths,
-        startsWith, endsWith, contains, containsAll,
-        qWithoutU, isVowelHeavy, noVowels, sortOrder,
-        frequencyFilter, minProbability, maxProbability, sortByFrequency
-      }
-    });
+    // Check if we can do instant client-side search
+    const canDoInstantSearch = !frequencyFilter && 
+                              !minProbability && 
+                              !maxProbability && 
+                              !sortByFrequency &&
+                              !startsWith && 
+                              !endsWith && 
+                              !contains && 
+                              !containsAll &&
+                              !qWithoutU && 
+                              !isVowelHeavy && 
+                              !noVowels;
+
+    if (canDoInstantSearch && dictionaryWords.length > 0) {
+      // Instant search using pre-loaded data
+      performInstantSearch(searchStartTime);
+    } else if (workerRef.current) {
+      // Use worker for complex searches
+      workerRef.current.postMessage({
+        type: 'searchWords',
+        componentId: componentId.current,
+        searchParams: {
+          searchType: 'anagram',
+          letters,
+          allowPartial, selectedLengths,
+          startsWith, endsWith, contains, containsAll,
+          qWithoutU, isVowelHeavy, noVowels, sortOrder,
+          frequencyFilter, minProbability, maxProbability, sortByFrequency
+        },
+        searchStartTime
+      });
+    } else {
+      setLoading(false);
+      toast({
+        title: "Search Error",
+        description: "Dictionary not ready. Please wait a moment and try again.",
+        variant: "destructive"
+      });
+    }
   }, [
     letters, allowPartial, selectedLengths, startsWith, endsWith, contains, containsAll,
     qWithoutU, isVowelHeavy, noVowels, sortOrder, frequencyFilter, minProbability, 
-    maxProbability, sortByFrequency, loadingDictionary, dictionaryError, componentId
+    maxProbability, sortByFrequency, isDictionaryReady, dictionaryError, componentId, dictionaryWords
   ]);
 
-  // Debounced search for better performance
-  const debouncedSearch = useDebounce(performSearch, 300);
+  // Instant search using pre-loaded dictionary data
+  const performInstantSearch = (startTime: number) => {
+    try {
+      let filteredWords = [...dictionaryWords]; // Use pre-loaded data
 
-  // Auto-search when letters change (with debouncing)
-  useEffect(() => {
-    if (letters.trim().length > 0) {
-      debouncedSearch();
+      // Apply anagram filter
+      if (letters && letters.trim()) {
+        const inputLetters = (letters || '').toUpperCase().replace(/[^A-Z?.]/g, "");
+        if (allowPartial) {
+          filteredWords = filteredWords.filter((word) => canMakeWord(word, inputLetters));
+        } else {
+          const nonBlankLetters = inputLetters.replace(/[?.]/g, '');
+          if (inputLetters.length !== nonBlankLetters.length) {
+            filteredWords = filteredWords.filter(word => word.length === inputLetters.length && canMakeWord(word, inputLetters));
+          } else {
+            const inputSorted = nonBlankLetters.split("").sort().join("");
+            filteredWords = filteredWords.filter((word) => {
+              if (word.length !== inputSorted.length) return false;
+              const wordSorted = word.split("").sort().join("");
+              return wordSorted === inputSorted;
+            });
+          }
+        }
+      }
+
+      // Apply length filters
+      if (selectedLengths && selectedLengths.length > 0) {
+        filteredWords = filteredWords.filter(word => selectedLengths.includes(word.length));
+      }
+
+      // Apply basic filters
+      filteredWords = filteredWords.filter((word) => (word.length >= 2 && word.length <= 15));
+
+      // Sort results
+      filteredWords.sort((a, b) => sortOrder === "asc" ? 
+        (a.length === b.length ? a.localeCompare(b) : a.length - b.length) : 
+        (a.length === b.length ? a.localeCompare(b) : b.length - a.length)
+      );
+
+      // Add frequency data and limit results for performance
+      const limitedResults = filteredWords.slice(0, 1000).map(word => ({
+        word,
+        frequency: frequencyMap.get(word) || { frequency: 50, difficulty: 'uncommon' }
+      }));
+
+      setResults(limitedResults);
+      setLoading(false);
+      
+      const searchTime = Date.now() - startTime;
+      console.log(`Instant search completed: ${limitedResults.length} results in ${searchTime}ms`);
+      
+      // Show performance feedback for slow searches
+      if (searchTime > 500) {
+        toast({
+          title: "Search Complete",
+          description: `Found ${limitedResults.length} words in ${searchTime}ms`,
+          duration: 2000
+        });
+      }
+    } catch (error) {
+      console.error('Instant search failed:', error);
+      setLoading(false);
     }
-  }, [letters, debouncedSearch]);
+  };
+
+  // Client-side search for better performance (fallback)
+  const performClientSearch = async (startTime: number) => {
+    try {
+      const cachedWords = await dictionaryService.getCachedWords();
+      const cachedFrequencyMap = await dictionaryService.getCachedFrequencyMap();
+      
+      if (cachedWords.length === 0) {
+        setLoading(false);
+        return;
+      }
+
+      let filteredWords = cachedWords;
+
+      // Apply anagram filter
+      if (letters && letters.trim()) {
+        const inputLetters = (letters || '').toUpperCase().replace(/[^A-Z?.]/g, "");
+        if (allowPartial) {
+          filteredWords = filteredWords.filter((word) => canMakeWord(word, inputLetters));
+        } else {
+          const nonBlankLetters = inputLetters.replace(/[?.]/g, '');
+          if (inputLetters.length !== nonBlankLetters.length) {
+            filteredWords = filteredWords.filter(word => word.length === inputLetters.length && canMakeWord(word, inputLetters));
+          } else {
+            const inputSorted = nonBlankLetters.split("").sort().join("");
+            filteredWords = filteredWords.filter((word) => {
+              if (word.length !== inputSorted.length) return false;
+              const wordSorted = word.split("").sort().join("");
+              return wordSorted === inputSorted;
+            });
+          }
+        }
+      }
+
+      // Apply length filters
+      if (selectedLengths && selectedLengths.length > 0) {
+        filteredWords = filteredWords.filter(word => selectedLengths.includes(word.length));
+      }
+
+      // Apply basic filters
+      filteredWords = filteredWords.filter((word) => (word.length >= 2 && word.length <= 15));
+
+      // Sort results
+      filteredWords.sort((a, b) => sortOrder === "asc" ? 
+        (a.length === b.length ? a.localeCompare(b) : a.length - b.length) : 
+        (a.length === b.length ? a.localeCompare(b) : b.length - a.length)
+      );
+
+      // Add frequency data and limit results for performance
+      const limitedResults = filteredWords.slice(0, 1000).map(word => ({
+        word,
+        frequency: cachedFrequencyMap.get(word) || { frequency: 50, difficulty: 'uncommon' }
+      }));
+
+      setResults(limitedResults);
+      setLoading(false);
+      
+      const searchTime = Date.now() - startTime;
+      console.log(`Client search completed: ${limitedResults.length} results in ${searchTime}ms`);
+      
+      // Show performance feedback to user
+      if (searchTime > 1000) {
+        toast({
+          title: "Search Complete",
+          description: `Found ${limitedResults.length} words in ${searchTime}ms`,
+          duration: 2000
+        });
+      }
+    } catch (error) {
+      console.error('Client search failed:', error);
+      setLoading(false);
+    }
+  };
+
+  // Utility function for word matching (copied from worker)
+  const canMakeWord = (word: string, availableLetters: string): boolean => {
+    if (!word || !availableLetters) return false;
+    
+    const letterCount = new Map<string, number>();
+    let blanks = 0;
+    for (const letter of (availableLetters || '').toUpperCase()) {
+      if (letter === '?' || letter === '.') blanks++;
+      else letterCount.set(letter, (letterCount.get(letter) || 0) + 1);
+    }
+    for (const letter of (word || '').toUpperCase()) {
+      const count = letterCount.get(letter) || 0;
+      if (count > 0) letterCount.set(letter, count - 1);
+      else if (blanks > 0) blanks--;
+      else return false;
+    }
+    return true;
+  };
+
+  // Remove auto-search - only search when button is clicked
+  // const debouncedSearch = useDebounce(performSearch, 300);
+
+  // Remove auto-search effect
+  // useEffect(() => {
+  //   if (letters.trim().length > 0) {
+  //     debouncedSearch();
+  //   }
+  // }, [letters, debouncedSearch]);
 
   const handleSolve = () => {
-    performSearch(); // Immediate search when button is clicked
+    if (letters.trim().length > 0) {
+      performSearch(); // Only search when button is clicked
+    }
   };
 
 
-  const fetchDefinition = async (word: string) => { /* ... unchanged ... */ };
+  const fetchDefinition = async (word: string) => {
+    try {
+      const response = await fetch(`https://api.wordnik.com/v4/word.json/${word}/definitions?limit=1&includeRelated=false&sourceDictionaries=all&useCanonical=false&includeTags=false&api_key=${WORDNIK_API_KEY}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data && data.length > 0) {
+        setDefinition({
+          text: data[0].text,
+          partOfSpeech: data[0].partOfSpeech || 'unknown'
+        });
+      } else {
+        setDefinitionError('No definition found for this word.');
+      }
+    } catch (error) {
+      console.error('Error fetching definition:', error);
+      setDefinitionError('Failed to fetch definition. Please try again.');
+    } finally {
+      setDefinitionLoading(false);
+    }
+  };
   const handleWordClick = (word: string) => {
     if (!word) return;
     
@@ -200,19 +548,16 @@ export default function AnagramSolver() {
         return;
     }
 
-    // Determine the profile_id to associate with the deck
-    // Assuming user.id from useAuth is the same as profile.id
-    const deckProfileId = user.id; 
-    console.log("Attempting Supabase insert with profile_id:", deckProfileId);
+    console.log("Attempting Supabase insert with deck name:", deckName.trim());
     console.log("Deck Public:", makeDeckPublic);
     console.log("Deck Description:", publicDescription);
 
-    const { error } = await supabase.from("cardbox").insert([
+    // Save to flashcard_decks table (which is what QuizMode uses)
+    const { error } = await (supabase as any).from("flashcard_decks").insert([
       {
         user_id: user.id,
-        profile_id: deckProfileId, // FIX: Include profile_id for foreign key
         name: deckName.trim(),
-        words: results, // Ensure this matches your DB column type (e.g., text[] for array of words)
+        words: results.map(wordObj => typeof wordObj === 'string' ? wordObj : wordObj.word || '').filter(word => word.trim().length > 0), // Extract word strings from objects
         is_public: makeDeckPublic,
         description: makeDeckPublic ? publicDescription.trim() : null
       }
@@ -222,10 +567,7 @@ export default function AnagramSolver() {
       console.error("Supabase Insert Error:", error); // Log the full error object for debugging
       if (error.code === '23505') { // PostgreSQL unique violation error code
         setSaveDeckMessage("Error: A deck with this name already exists or is a duplicate.");
-      } else if (error.message.includes('foreign key constraint') || error.message.includes('null value in column "profile_id"')) {
-        setSaveDeckMessage("Error: Database profile link missing or invalid. Please ensure your database migration for 'profile_id' is complete and you are logged in.");
-      }
-      else {
+      } else {
         setSaveDeckMessage(`Error saving deck: ${error.message || "Unknown database error"}`);
       }
     } else {
@@ -240,8 +582,51 @@ export default function AnagramSolver() {
   };
   // --- END FIX: Save to Quiz Deck Function ---
 
-  const exportAsTxt = () => { /* ... unchanged ... */ };
-  const exportAsPdf = () => { /* ... unchanged ... */ };
+  const exportAsTxt = () => {
+    const content = results.map(wordObj => {
+      const word = typeof wordObj === 'string' ? wordObj : wordObj.word || '';
+      const frequencyData = typeof wordObj === 'object' && wordObj.frequency ? wordObj.frequency : null;
+      const frequency = frequencyData && typeof frequencyData === 'object' ? frequencyData.frequency : null;
+      return `${word}${frequency ? ` (${frequency}%)` : ''}`;
+    }).join('\n');
+    
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `anagram-results-${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const exportAsPdf = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text('Anagram Solver Results', 20, 20);
+    doc.setFontSize(12);
+    
+    let y = 40;
+    const wordsPerPage = 50;
+    const words = results.map(wordObj => {
+      const word = typeof wordObj === 'string' ? wordObj : wordObj.word || '';
+      const frequencyData = typeof wordObj === 'object' && wordObj.frequency ? wordObj.frequency : null;
+      const frequency = frequencyData && typeof frequencyData === 'object' ? frequencyData.frequency : null;
+      return `${word}${frequency ? ` (${frequency}%)` : ''}`;
+    });
+    
+    for (let i = 0; i < words.length; i++) {
+      if (i > 0 && i % wordsPerPage === 0) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.text(words[i], 20, y);
+      y += 7;
+    }
+    
+    doc.save(`anagram-results-${new Date().toISOString().split('T')[0]}.pdf`);
+  };
 
   // --- REMOVED: saveToCardbox function (as requested) ---
   // const saveToCardbox = async () => { ... };
@@ -249,11 +634,12 @@ export default function AnagramSolver() {
 
 
   // --- FIX: Determine if the solve button should be disabled ---
-  const isSolveButtonDisabled = loading || loadingDictionary || dictionaryError !== null || (
+  const isSolveButtonDisabled = loading || !isDictionaryReady || dictionaryError !== null || (
     // Button is disabled if:
-    // 1. App is currently loading dictionary or searching
-    // 2. Dictionary had an error loading
-    // 3. AND NO search criteria are provided at all (all input fields are empty)
+    // 1. App is currently searching
+    // 2. Dictionary is not ready
+    // 3. Dictionary had an error loading
+    // 4. AND NO search criteria are provided at all (all input fields are empty)
     letters.trim().length === 0 &&
     startsWith.trim().length === 0 &&
     endsWith.trim().length === 0 &&
@@ -271,12 +657,14 @@ export default function AnagramSolver() {
   return (
     <>
       <div className="min-h-screen bg-background transition-colors duration-300">
-        <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 sm:space-y-8">
+        <div className="mobile-container mx-auto py-6 sm:py-8 space-y-6 sm:space-y-8">
           <div className="text-center space-y-3">
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-primary leading-tight">Anagram Solver</h1>
             <p className="text-muted-foreground max-w-2xl mx-auto text-sm sm:text-base lg:text-lg px-2">Find words with the ultimate toolkit.</p>
           </div>
-          <Card className="max-w-4xl mx-auto border shadow-elegant">
+          
+          {/* Main Input Form */}
+          <Card className="max-w-4xl mx-auto mobile-card">
             <CardHeader className="px-4 sm:px-6">
               <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
                 <Shuffle className="h-5 w-5 sm:h-6 sm:w-6 text-primary" /> 
@@ -291,7 +679,7 @@ export default function AnagramSolver() {
                     onChange={(value) => setLetters(value.toUpperCase())}
                     placeholder="ENTER LETTERS (E.G., RETAINS?)"
                     onSearch={handleSolve}
-                    disabled={loading || loadingDictionary || dictionaryError !== null}
+                    disabled={loading || !isDictionaryReady || dictionaryError !== null}
                     className="text-base font-mono tracking-widest uppercase"
                   />
                 ) : (
@@ -300,17 +688,17 @@ export default function AnagramSolver() {
                       placeholder="ENTER LETTERS (E.G., RETAINS?)"
                       value={letters}
                       onChange={(e) => setLetters((e.target.value || '').toUpperCase())}
-                      className="flex-1 text-base sm:text-lg p-4 sm:p-6 font-mono tracking-widest uppercase"
+                      className="mobile-input flex-1 text-base sm:text-lg p-4 sm:p-6 font-mono tracking-widest uppercase"
                       onKeyPress={(e) => e.key === 'Enter' && handleSolve()}
-                      disabled={loading || loadingDictionary || dictionaryError !== null}
+                      disabled={loading || !isDictionaryReady || dictionaryError !== null}
                     />
                     <Button
                       id="solve-button"
                       onClick={handleSolve}
                       disabled={isSolveButtonDisabled}
-                      className="px-6 sm:px-8 py-4 sm:py-6 text-base sm:text-lg bg-gradient-primary hover:opacity-90 transition-all duration-300 h-12 sm:h-auto"
+                      className="mobile-button px-6 sm:px-8 py-4 sm:py-6 text-base sm:text-lg bg-gradient-primary hover:opacity-90 transition-all duration-300 h-12 sm:h-auto"
                     >
-                      {loadingDictionary ? <><LoaderCircle className="h-4 w-4 sm:h-5 sm:w-5 mr-2 animate-spin" /> Loading...</> :
+                      {!isDictionaryReady ? <><LoaderCircle className="h-4 w-4 sm:h-5 sm:w-5 mr-2 animate-spin" /> Loading...</> :
                        loading ? <><LoaderCircle className="h-4 w-4 sm:h-5 sm:w-5 mr-2 animate-spin" /> Solving...</> :
                        <><Search className="h-4 w-4 sm:h-5 sm:w-5 mr-2" /> Solve</>}
                     </Button>
@@ -324,44 +712,120 @@ export default function AnagramSolver() {
                     disabled={isSolveButtonDisabled}
                     className="w-full py-4 text-lg bg-gradient-primary hover:opacity-90 transition-all duration-300"
                   >
-                    {loadingDictionary ? <><LoaderCircle className="h-5 w-5 mr-2 animate-spin" /> Loading...</> :
+                    {!isDictionaryReady ? <><LoaderCircle className="h-5 w-5 mr-2 animate-spin" /> Loading...</> :
                      loading ? <><LoaderCircle className="h-5 w-5 mr-2 animate-spin" /> Solving...</> :
                      <><Search className="h-5 w-5 mr-2" /> Solve</>}
                   </Button>
                 )}
               </div>
+              
               {dictionaryError && (
                 <div className="bg-red-500/10 text-red-600 border border-red-500 rounded-md p-3 text-center">
                   Error: {dictionaryError}. Please refresh the page.
                 </div>
               )}
+              
+              {/* Filters Section */}
               <Collapsible>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   <div className="space-y-2">
                     <Label>Search Type</Label>
-                    <Button variant={allowPartial ? "default" : "outline"} onClick={() => setAllowPartial(!allowPartial)} className="w-full" disabled={loadingDictionary || loading || dictionaryError !== null}>{allowPartial ? "Partial Match" : "Exact Match"}</Button>
+                    <Button 
+                      variant={allowPartial ? "default" : "outline"} 
+                      onClick={() => setAllowPartial(!allowPartial)} 
+                      className="w-full" 
+                      disabled={loading || !isDictionaryReady || dictionaryError !== null}
+                    >
+                      {allowPartial ? "Partial Match" : "Exact Match"}
+                    </Button>
                   </div>
                   <div className="space-y-2 col-span-2">
                     <Label>Advanced</Label>
                     <CollapsibleTrigger asChild>
-                      <Button variant="outline" className="w-full" disabled={loadingDictionary || loading || dictionaryError !== null}><Filter className="mr-2 h-4 w-4" /> More Filters</Button>
+                      <Button 
+                        variant="outline" 
+                        className="w-full" 
+                        disabled={loading || !isDictionaryReady || dictionaryError !== null}
+                      >
+                        <Filter className="mr-2 h-4 w-4" /> More Filters
+                      </Button>
                     </CollapsibleTrigger>
                   </div>
                 </div>
+                
                 <CollapsibleContent className="mt-6 space-y-6 border-t pt-6">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="space-y-2"><Label>Starts With</Label><Input placeholder="E.G., PRE" value={startsWith} onChange={e => setStartsWith((e.target.value || '').toUpperCase())} className="uppercase" disabled={loadingDictionary || loading || dictionaryError !== null}/></div>
-                    <div className="space-y-2"><Label>Ends With</Label><Input placeholder="E.G., ING" value={endsWith} onChange={e => setEndsWith((e.target.value || '').toUpperCase())} className="uppercase" disabled={loadingDictionary || loading || dictionaryError !== null}/></div>
-                    <div className="space-y-2"><Label>Contains Substring</Label><Input placeholder="E.G., ZY" value={contains} onChange={e => setContains((e.target.value || '').toUpperCase())} className="uppercase" disabled={loadingDictionary || loading || dictionaryError !== null}/></div>
+                    <div className="space-y-2">
+                      <Label>Starts With</Label>
+                      <Input 
+                        placeholder="E.G., PRE" 
+                        value={startsWith} 
+                        onChange={e => setStartsWith((e.target.value || '').toUpperCase())} 
+                        className="uppercase" 
+                        disabled={loading || !isDictionaryReady || dictionaryError !== null}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Ends With</Label>
+                      <Input 
+                        placeholder="E.G., ING" 
+                        value={endsWith} 
+                        onChange={e => setEndsWith((e.target.value || '').toUpperCase())} 
+                        className="uppercase" 
+                        disabled={loading || !isDictionaryReady || dictionaryError !== null}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Contains Substring</Label>
+                      <Input 
+                        placeholder="E.G., ZY" 
+                        value={contains} 
+                        onChange={e => setContains((e.target.value || '').toUpperCase())} 
+                        className="uppercase" 
+                        disabled={loading || !isDictionaryReady || dictionaryError !== null}
+                      />
+                    </div>
                   </div>
+                  
                   <div className="space-y-2">
                     <Label>Contains All These Letters</Label>
-                    <Input placeholder="E.G., XYZ" value={containsAll} onChange={e => setContainsAll((e.target.value || '').toUpperCase())} className="uppercase" disabled={loadingDictionary || loading || dictionaryError !== null}/>
+                    <Input 
+                      placeholder="E.G., XYZ" 
+                      value={containsAll} 
+                      onChange={e => setContainsAll((e.target.value || '').toUpperCase())} 
+                      className="uppercase" 
+                      disabled={loading || !isDictionaryReady || dictionaryError !== null}
+                    />
                   </div>
+                  
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-4 border-t">
-                    <div className="flex items-center space-x-2"><Switch id="q-no-u" checked={qWithoutU} onCheckedChange={setQWithoutU} disabled={loadingDictionary || loading || dictionaryError !== null}/><Label htmlFor="q-no-u">Q without U</Label></div>
-                    <div className="flex items-center space-x-2"><Switch id="vowel-heavy" checked={isVowelHeavy} onCheckedChange={setIsVowelHeavy} disabled={loadingDictionary || loading || dictionaryError !== null}/><Label htmlFor="vowel-heavy">Vowel-Heavy</Label></div>
-                    <div className="flex items-center space-x-2"><Switch id="no-vowels" checked={noVowels} onCheckedChange={setNoVowels} disabled={loadingDictionary || loading || dictionaryError !== null}/><Label htmlFor="no-vowels">No Vowels</Label></div>
+                    <div className="flex items-center space-x-2">
+                      <Switch 
+                        id="q-no-u" 
+                        checked={qWithoutU} 
+                        onCheckedChange={setQWithoutU} 
+                        disabled={loading || !isDictionaryReady || dictionaryError !== null}
+                      />
+                      <Label htmlFor="q-no-u">Q without U</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Switch 
+                        id="vowel-heavy" 
+                        checked={isVowelHeavy} 
+                        onCheckedChange={setIsVowelHeavy} 
+                        disabled={loading || !isDictionaryReady || dictionaryError !== null}
+                      />
+                      <Label htmlFor="vowel-heavy">Vowel-Heavy</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Switch 
+                        id="no-vowels" 
+                        checked={noVowels} 
+                        onCheckedChange={setNoVowels} 
+                        disabled={loading || !isDictionaryReady || dictionaryError !== null}
+                      />
+                      <Label htmlFor="no-vowels">No Vowels</Label>
+                    </div>
                   </div>
                   
                   {/* Probability/Frequency Filters */}
@@ -377,7 +841,7 @@ export default function AnagramSolver() {
                         <Select 
                           value={frequencyFilter} 
                           onValueChange={(value: 'all' | 'common' | 'uncommon' | 'rare' | 'expert') => setFrequencyFilter(value)}
-                          disabled={loadingDictionary || loading || dictionaryError !== null}
+                          disabled={loading || !isDictionaryReady || dictionaryError !== null}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Select frequency level" />
@@ -398,7 +862,7 @@ export default function AnagramSolver() {
                             id="sort-by-frequency" 
                             checked={sortByFrequency} 
                             onCheckedChange={setSortByFrequency} 
-                            disabled={loadingDictionary || loading || dictionaryError !== null}
+                            disabled={loading || !isDictionaryReady || dictionaryError !== null}
                           />
                           <Label htmlFor="sort-by-frequency">Sort by Frequency</Label>
                         </div>
@@ -417,7 +881,7 @@ export default function AnagramSolver() {
                           max="100"
                           value={minProbability}
                           onChange={(e) => setMinProbability(Math.max(0, Math.min(100, Number(e.target.value))))}
-                          disabled={loadingDictionary || loading || dictionaryError !== null}
+                          disabled={loading || !isDictionaryReady || dictionaryError !== null}
                           className="text-center"
                         />
                       </div>
@@ -430,7 +894,7 @@ export default function AnagramSolver() {
                           max="100"
                           value={maxProbability}
                           onChange={(e) => setMaxProbability(Math.max(0, Math.min(100, Number(e.target.value))))}
-                          disabled={loadingDictionary || loading || dictionaryError !== null}
+                          disabled={loading || !isDictionaryReady || dictionaryError !== null}
                           className="text-center"
                         />
                       </div>
@@ -445,7 +909,7 @@ export default function AnagramSolver() {
                           setMinProbability(0);
                           setMaxProbability(100);
                         }}
-                        disabled={loadingDictionary || loading || dictionaryError !== null}
+                        disabled={loading || !isDictionaryReady || dictionaryError !== null}
                       >
                         Reset Filters
                       </Button>
@@ -453,7 +917,7 @@ export default function AnagramSolver() {
                         variant={frequencyFilter === 'common' ? "default" : "outline"}
                         size="sm"
                         onClick={() => setFrequencyFilter('common')}
-                        disabled={loadingDictionary || loading || dictionaryError !== null}
+                        disabled={loading || !isDictionaryReady || dictionaryError !== null}
                       >
                         Common Only
                       </Button>
@@ -461,7 +925,7 @@ export default function AnagramSolver() {
                         variant={frequencyFilter === 'rare' ? "default" : "outline"}
                         size="sm"
                         onClick={() => setFrequencyFilter('rare')}
-                        disabled={loadingDictionary || loading || dictionaryError !== null}
+                        disabled={loading || !isDictionaryReady || dictionaryError !== null}
                       >
                         Rare Only
                       </Button>
@@ -469,7 +933,7 @@ export default function AnagramSolver() {
                         variant={frequencyFilter === 'expert' ? "default" : "outline"}
                         size="sm"
                         onClick={() => setFrequencyFilter('expert')}
-                        disabled={loadingDictionary || loading || dictionaryError !== null}
+                        disabled={loading || !isDictionaryReady || dictionaryError !== null}
                       >
                         Expert Only
                       </Button>
@@ -477,6 +941,7 @@ export default function AnagramSolver() {
                   </div>
                 </CollapsibleContent>
               </Collapsible>
+              
               <div className="pt-6 border-t">
                 <Label className="text-sm font-medium mb-2 block">Filter by Word Length:</Label>
                 <div className="flex flex-wrap gap-2">
@@ -484,7 +949,7 @@ export default function AnagramSolver() {
                     variant={selectedLengths.length === 0 ? "default" : "outline"}
                     onClick={clearLengths}
                     size="sm"
-                    disabled={loadingDictionary || loading || dictionaryError !== null}
+                    disabled={loading || !isDictionaryReady || dictionaryError !== null}
                   >
                     All Lengths
                   </Button>
@@ -494,23 +959,39 @@ export default function AnagramSolver() {
                       variant={selectedLengths.includes(len) ? "default" : "outline"}
                       onClick={() => toggleLength(len)}
                       size="sm"
-                      disabled={loadingDictionary || loading || dictionaryError !== null}
+                      disabled={loading || !isDictionaryReady || dictionaryError !== null}
                     >
                       {len} Letters
                     </Button>
                   ))}
                 </div>
               </div>
+              
               {results.length > 0 && (
                 <div className="flex flex-wrap gap-2 pt-6 border-t">
-                  <Button onClick={exportAsTxt} variant="outline"><FileText className="mr-2 h-4 w-4" /> Export TXT</Button>
-                  <Button onClick={exportAsPdf} variant="outline"><Download className="mr-2 h-4 w-4" /> Export PDF</Button>
-                  <Button onClick={() => setShowSavePrompt(true)} variant="outline">📁 Save as Quiz Deck</Button>
+                  <Button onClick={exportAsTxt} variant="outline">
+                    <FileText className="mr-2 h-4 w-4" /> Export TXT
+                  </Button>
+                  <Button onClick={exportAsPdf} variant="outline">
+                    <Download className="mr-2 h-4 w-4" /> Export PDF
+                  </Button>
+                  <Button onClick={() => setShowSavePrompt(true)} variant="outline">
+                    📁 Save as Quiz Deck
+                  </Button>
                   {showSavePrompt && (
                     <div className="flex flex-col gap-2 w-full pt-2">
-                      <Input placeholder="Enter deck name" value={deckName} onChange={(e) => setDeckName(e.target.value)} className="flex-grow" />
+                      <Input 
+                        placeholder="Enter deck name" 
+                        value={deckName} 
+                        onChange={(e) => setDeckName(e.target.value)} 
+                        className="flex-grow" 
+                      />
                       <div className="flex items-center space-x-2 mt-2">
-                        <Switch id="make-public" checked={makeDeckPublic} onCheckedChange={setMakeDeckPublic} />
+                        <Switch 
+                          id="make-public" 
+                          checked={makeDeckPublic} 
+                          onCheckedChange={setMakeDeckPublic} 
+                        />
                         <Label htmlFor="make-public">Make Public</Label>
                       </div>
                       {makeDeckPublic && (
@@ -521,8 +1002,10 @@ export default function AnagramSolver() {
                           className="mt-2 h-10 bg-gray-900 border-gray-700 text-base"
                         />
                       )}
-                      <Button onClick={saveAsQuizDeck} disabled={!deckName.trim()} variant="default">Save Deck</Button>
-                      {saveDeckMessage && ( // Display feedback message for saving deck
+                      <Button onClick={saveAsQuizDeck} disabled={!deckName.trim()} variant="default">
+                        Save Deck
+                      </Button>
+                      {saveDeckMessage && (
                         <p className={`text-sm mt-2 text-center ${saveDeckMessage.includes("Error") ? "text-red-400" : "text-green-400"}`}>
                           {saveDeckMessage}
                         </p>
@@ -533,7 +1016,9 @@ export default function AnagramSolver() {
               )}
             </CardContent>
           </Card>
-          {loadingDictionary ? (
+          
+          {/* Loading State */}
+          {!isDictionaryReady ? (
              <Card className="max-w-4xl mx-auto border shadow-elegant">
                <CardContent className="p-8 text-center space-y-4">
                  <LoaderCircle className="w-12 h-12 animate-spin text-primary mx-auto" />
@@ -605,7 +1090,7 @@ export default function AnagramSolver() {
                             {isMobile ? (
                               <button 
                                 onClick={() => handleWordClick(word)} 
-                                className="word-tile border border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10 text-center font-mono font-semibold hover:scale-105 transition-transform duration-200 hover:shadow-md hover:bg-primary/20 focus:outline-none focus:ring-2 focus:ring-primary"
+                                className="mobile-word-tile border border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10 text-center font-mono font-semibold hover:scale-105 transition-transform duration-200 hover:shadow-md hover:bg-primary/20 focus:outline-none focus:ring-2 focus:ring-primary"
                               >
                                 <div className="text-sm tracking-wider leading-tight">{highlighted}</div>
                                 <div className="text-xs text-muted-foreground mt-1 flex items-center justify-center gap-1">
@@ -620,7 +1105,7 @@ export default function AnagramSolver() {
                             ) : (
                               <button 
                                 onClick={() => handleWordClick(word)} 
-                                className="border border-primary/20 p-2 sm:p-3 rounded-lg bg-gradient-to-br from-primary/5 to-primary/10 text-center font-mono font-semibold hover:scale-105 transition-transform duration-200 hover:shadow-md hover:bg-primary/20 focus:outline-none focus:ring-2 focus:ring-primary min-h-[60px] sm:min-h-[80px]"
+                                className="mobile-word-tile border border-primary/20 p-2 sm:p-3 rounded-2xl bg-gradient-to-br from-primary/5 to-primary/10 text-center font-mono font-semibold hover:scale-105 transition-transform duration-200 hover:shadow-md hover:bg-primary/20 focus:outline-none focus:ring-2 focus:ring-primary min-h-[60px] sm:min-h-[80px]"
                               >
                                 <div className="text-sm sm:text-lg tracking-wider leading-tight">{highlighted}</div>
                                 <div className="text-xs text-muted-foreground mt-1 space-y-1">

@@ -17,7 +17,7 @@ export const AdTicker = () => {
         }}
         transition={{
           ease: "linear",
-          duration: isMobile ? 60 : 120,
+          duration: isMobile ? 20 : 40, // Increased speed (reduced from 60/120 to 20/40)
           repeat: Infinity,
         }}
       >

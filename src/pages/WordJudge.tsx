@@ -6,13 +6,25 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { motion, AnimatePresence } from "framer-motion";
 import { LoadingSpinner } from "@/components/ui/loading";
 import { ErrorState } from "@/components/ui/error-boundary";
+import { usePageSession } from "@/context/SessionContext";
 
 const WordJudge = () => {
-  const [words, setWords] = useState("");
-  const [result, setResult] = useState<"acceptable" | "not-acceptable" | null>(null);
+  const { session, setSession } = usePageSession('wordJudge');
+  
+  const [words, setWords] = useState(session?.words || "");
+  const [result, setResult] = useState<"acceptable" | "not-acceptable" | null>(session?.result || null);
   const [loading, setLoading] = useState(false);
   const [wordSet, setWordSet] = useState<Set<string>>(new Set());
   const [dictStatus, setDictStatus] = useState<"loading" | "loaded" | "error">("loading");
+
+  // Save session data whenever relevant state changes
+  useEffect(() => {
+    const sessionData = {
+      words,
+      result,
+    };
+    setSession(sessionData);
+  }, [words, result]); // Removed setSession from dependencies to prevent infinite loop
 
   useEffect(() => {
     const fetchWords = async () => {

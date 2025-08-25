@@ -7,15 +7,18 @@ import { AdTicker } from "@/components/ui/AdTicker";
 export default function Layout() {
   return (
     <div className="flex flex-col min-h-screen bg-background transition-colors duration-300">
+      {/* Mobile Status Bar */}
+      <div className="mobile-status-bar lg:hidden" />
+      
       {/* Sticky Header */}
-      <header className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm transition-colors duration-300">
+      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-lg border-b border-border shadow-sm transition-colors duration-300 mobile-safe-top">
         <Navbar />
         <AdTicker />
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-x-hidden">
-        <div className="min-h-[calc(100vh-120px)] w-full pb-20 lg:pb-4">
+      <main className="flex-1 overflow-x-hidden mobile-container">
+        <div className="min-h-[calc(100vh-120px)] w-full pb-24 lg:pb-4 mobile-safe-bottom">
           <Outlet />
         </div>
       </main>

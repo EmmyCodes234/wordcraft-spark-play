@@ -8,7 +8,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { CardSection } from "@/components/ui/card-section";
 import { SettingItem } from "@/components/ui/setting-item";
 import { Container } from "@/components/ui/container";
-import { Loading } from "@/components/ui/loading";
+import { FullPageLoader } from "@/components/ui/loading";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/AuthContext";
@@ -483,7 +483,7 @@ export default function Settings() {
   };
 
   if (loading) {
-    return <Loading fullScreen size="lg" text="Loading your settings..." />;
+    return <FullPageLoader message="Loading your settings..." />;
   }
 
   return (

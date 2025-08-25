@@ -78,11 +78,11 @@ const MobileNav = () => {
                   <button
                     onClick={() => setGamesExpanded(!gamesExpanded)}
                     className={cn(
-                      "flex flex-col items-center justify-center gap-1 p-3 rounded-xl transition-all duration-200 touch-manipulation",
+                      "mobile-haptic flex flex-col items-center justify-center gap-1 p-3 rounded-2xl transition-all duration-200",
                       "min-h-[56px] min-w-[56px]",
                       active 
-                        ? "bg-primary text-white shadow-lg scale-105" 
-                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                        ? "bg-primary text-primary-foreground shadow-lg scale-105" 
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
                     )}
                   >
                     <motion.div
@@ -110,7 +110,7 @@ const MobileNav = () => {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -10, scale: 0.95 }}
                         transition={{ duration: 0.2 }}
-                        className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 bg-white rounded-lg shadow-lg border border-gray-200 p-2 min-w-[200px]"
+                        className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 mobile-card p-2 min-w-[200px]"
                       >
                         {item.children?.map((child) => {
                           const ChildIcon = child.icon;
@@ -122,10 +122,10 @@ const MobileNav = () => {
                               to={child.path}
                               onClick={() => setGamesExpanded(false)}
                               className={cn(
-                                "flex items-center gap-3 px-3 py-2 rounded-md transition-all duration-200 text-sm",
+                                "mobile-haptic flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-200 text-sm",
                                 childActive
                                   ? "bg-primary/10 text-primary font-medium"
-                                  : "text-gray-700 hover:bg-gray-100"
+                                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
                               )}
                             >
                               <ChildIcon className="w-4 h-4" />
@@ -145,11 +145,11 @@ const MobileNav = () => {
                 key={item.path}
                 to={item.path}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-1 p-3 rounded-xl transition-all duration-200 touch-manipulation",
+                  "mobile-haptic flex flex-col items-center justify-center gap-1 p-3 rounded-2xl transition-all duration-200",
                   "min-h-[56px] min-w-[56px]",
                   active 
-                    ? "bg-primary text-white shadow-lg scale-105" 
-                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                    ? "bg-primary text-primary-foreground shadow-lg scale-105" 
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
                 )}
               >
                 <motion.div
@@ -164,7 +164,7 @@ const MobileNav = () => {
                 {active && (
                   <motion.div
                     layoutId="mobile-nav-indicator"
-                    className="absolute -bottom-1 w-1 h-1 bg-white rounded-full"
+                    className="absolute -bottom-1 w-1 h-1 bg-primary-foreground rounded-full"
                     initial={false}
                     transition={{ type: "spring", stiffness: 500, damping: 30 }}
                   />

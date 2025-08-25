@@ -288,6 +288,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
       };
       
+      // Apply initial state
+      handleChange();
+      
       mediaQuery.addEventListener('change', handleChange);
       return () => mediaQuery.removeEventListener('change', handleChange);
     }

@@ -319,7 +319,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       anagramSolver: 'Anagram Solver',
       anagramSolverDesc: 'Find all possible words from your letters',
       studyMode: 'Study Mode',
-      studyModeDesc: 'Practice with flashcards and quizzes',
+              studyModeDesc: 'Practice with anagram quizzes and challenges',
       start: 'Start',
     },
     notifications: {

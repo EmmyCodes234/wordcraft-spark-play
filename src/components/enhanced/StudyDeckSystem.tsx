@@ -1,90 +1,64 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/context/AuthContext";
+import { supabase } from "@/lib/supabaseClient";
+import { useSession } from "@/context/SessionContext";
 import { XPBadge } from "@/components/ui/xp-badge";
 import { 
-  Check, X, Star, Loader, Brain, Target, Clock, 
-  TrendingUp, BookOpen, Edit3, Save, Plus
+  BookOpen, 
+  CheckCircle, 
+  Clock, 
+  Star, 
+  AlertCircle, 
+  Target,
+  Edit3,
+  Save,
+  X,
+  Trash2
 } from "lucide-react";
-import { supabase } from "@/lib/supabaseClient";
-import { useAuth } from "@/context/AuthContext";
-import { useToast } from "@/hooks/use-toast";
-import { calculateWordScore } from "@/lib/scrabbleUtils";
-import { cn } from "@/lib/utils";
 
+// Simplified interface to match current database schema
 interface StudyWord {
-  id: number;
-  word: string;
-  status: "new" | "learning" | "reviewing" | "mastered" | "difficult";
-  notes?: string;
-  last_reviewed?: string;
-  review_count: number;
-  success_rate: number;
+  id: string;
+  user_id: string;
+  words: string[];
   created_at: string;
 }
 
-interface StudySession {
-  total_studied: number;
-  correct_answers: number;
-  xp_earned: number;
-  time_spent: number;
+// Local state for tracking study progress (not persisted to DB)
+interface WordProgress {
+  [wordId: string]: {
+    status: "new" | "learning" | "reviewing" | "mastered" | "difficult";
+    notes?: string;
+    last_reviewed?: string;
+    review_count: number;
+  };
 }
 
 const statusConfig = {
-  new: { 
-    color: 'bg-new/20 text-new border-new/30', 
-    label: 'New', 
-    icon: Plus,
-    gradient: 'bg-gradient-subtle',
-    xp: 5
-  },
-  learning: { 
-    color: 'bg-learning/20 text-learning border-learning/30', 
-    label: 'Learning', 
-    icon: Brain,
-    gradient: 'bg-gradient-quiz',
-    xp: 10
-  },
-  reviewing: { 
-    color: 'bg-warning/20 text-warning border-warning/30', 
-    label: 'Reviewing', 
-    icon: Clock,
-    gradient: 'bg-gradient-xp',
-    xp: 15
-  },
-  mastered: { 
-    color: 'bg-mastered/20 text-mastered border-mastered/30', 
-    label: 'Mastered', 
-    icon: Check,
-    gradient: 'bg-gradient-success',
-    xp: 25
-  },
-  difficult: { 
-    color: 'bg-difficult/20 text-difficult border-difficult/30', 
-    label: 'Difficult', 
-    icon: Target,
-    gradient: 'bg-gradient-streak',
-    xp: 30
-  }
+  new: { label: "New", icon: BookOpen, color: "bg-gray-500", xp: 0 },
+  learning: { label: "Learning", icon: Clock, color: "bg-blue-500", xp: 5 },
+  reviewing: { label: "Reviewing", icon: AlertCircle, color: "bg-yellow-500", xp: 10 },
+  mastered: { label: "Mastered", icon: CheckCircle, color: "bg-green-500", xp: 20 },
+  difficult: { label: "Difficult", icon: Target, color: "bg-red-500", xp: 15 },
 };
 
 export default function StudyDeckSystem() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { session, setSession } = useSession();
   const [deck, setDeck] = useState<StudyWord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editingNote, setEditingNote] = useState<number | null>(null);
+  const [editingNote, setEditingNote] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
-  const [session, setSession] = useState<StudySession>({
-    total_studied: 0,
-    correct_answers: 0,
-    xp_earned: 0,
-    time_spent: 0
-  });
+  
+  // Local progress tracking (not persisted to DB due to schema limitations)
+  const [wordProgress, setWordProgress] = useState<WordProgress>({});
 
   useEffect(() => {
     if (!user) return;
@@ -95,7 +69,7 @@ export default function StudyDeckSystem() {
     setLoading(true);
     const { data, error } = await supabase
       .from("cardbox")
-      .select("*")
+      .select("id, user_id, words, created_at")
       .eq("user_id", user?.id)
       .order("created_at", { ascending: false });
 
@@ -108,338 +82,306 @@ export default function StudyDeckSystem() {
       });
     } else {
       setDeck(data || []);
+      // Initialize progress for new words
+      const newProgress: WordProgress = {};
+      data?.forEach(item => {
+        if (!wordProgress[item.id]) {
+          newProgress[item.id] = {
+            status: "new",
+            review_count: 0
+          };
+        }
+      });
+      setWordProgress(prev => ({ ...prev, ...newProgress }));
     }
     setLoading(false);
   };
 
-  const updateStatus = async (id: number, newStatus: StudyWord["status"]) => {
-    const word = deck.find(w => w.id === id);
-    if (!word) return;
+  const updateStatus = async (id: string, newStatus: WordProgress[string]["status"]) => {
+    const progress = wordProgress[id];
+    if (!progress) return;
 
     const statusConf = statusConfig[newStatus];
     const xpEarned = statusConf.xp;
 
-    const { error } = await supabase
-      .from("cardbox")
-      .update({ 
+    // Update local progress (not persisted to DB due to schema limitations)
+    setWordProgress(prev => ({
+      ...prev,
+      [id]: {
+        ...prev[id],
         status: newStatus,
         last_reviewed: new Date().toISOString(),
-        review_count: word.review_count + 1
-      })
-      .eq("id", id);
+        review_count: (prev[id]?.review_count || 0) + 1
+      }
+    }));
+    
+    setSession(prev => ({
+      ...prev,
+      total_studied: (prev.total_studied || 0) + 1,
+      correct_answers: newStatus === 'mastered' ? (prev.correct_answers || 0) + 1 : (prev.correct_answers || 0),
+      xp_earned: (prev.xp_earned || 0) + xpEarned
+    }));
 
-    if (error) {
-      console.error("Failed to update status:", error);
-      toast({
-        title: "Update Failed",
-        description: "Failed to update word status.",
-        variant: "destructive"
-      });
-    } else {
-      setDeck((prev) =>
-        prev.map((w) => w.id === id ? { 
-          ...w, 
-          status: newStatus,
-          last_reviewed: new Date().toISOString(),
-          review_count: w.review_count + 1
-        } : w)
-      );
-      
-      setSession(prev => ({
-        ...prev,
-        total_studied: prev.total_studied + 1,
-        correct_answers: newStatus === 'mastered' ? prev.correct_answers + 1 : prev.correct_answers,
-        xp_earned: prev.xp_earned + xpEarned
-      }));
-
-      toast({
-        title: "Status Updated! 🎉",
-        description: (
-          <div className="flex items-center gap-2">
-            <span>Word marked as {statusConf.label}</span>
-            <XPBadge type="xp" value={xpEarned} size="sm" />
-          </div>
-        )
-      });
-    }
+    toast({
+      title: "Status Updated! 🎉",
+      description: (
+        <div className="flex items-center gap-2">
+          <span>Word marked as {statusConf.label}</span>
+          <XPBadge type="xp" value={xpEarned} size="sm" />
+        </div>
+      )
+    });
   };
 
-  const updateNotes = async (id: number, notes: string) => {
-    const { error } = await supabase
-      .from("cardbox")
-      .update({ notes })
-      .eq("id", id);
-
-    if (error) {
-      console.error("Failed to update notes:", error);
-      toast({
-        title: "Save Failed",
-        description: "Failed to save notes.",
-        variant: "destructive"
-      });
-    } else {
-      setDeck((prev) =>
-        prev.map((w) => w.id === id ? { ...w, notes } : w)
-      );
-      setEditingNote(null);
-      toast({
-        title: "Notes Saved",
-        description: "Your notes have been saved successfully."
-      });
-    }
+  const updateNotes = async (id: string, notes: string) => {
+    // Update local progress (not persisted to DB due to schema limitations)
+    setWordProgress(prev => ({
+      ...prev,
+      [id]: {
+        ...prev[id],
+        notes
+      }
+    }));
+    
+    setEditingNote(null);
+    toast({
+      title: "Notes Saved",
+      description: "Your notes have been saved successfully."
+    });
   };
 
-  const removeWord = async (id: number) => {
+  const deleteDeck = async (id: string) => {
     const { error } = await supabase
       .from("cardbox")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .eq("user_id", user?.id);
 
     if (error) {
-      console.error("Failed to remove word:", error);
+      console.error("Failed to delete deck:", error);
       toast({
-        title: "Remove Failed",
-        description: "Failed to remove word from deck.",
+        title: "Delete Failed",
+        description: "Failed to delete deck. Please try again.",
         variant: "destructive"
       });
     } else {
-      setDeck((prev) => prev.filter((w) => w.id !== id));
+      setDeck(prev => prev.filter(deck => deck.id !== id));
+      // Remove from local progress tracking
+      setWordProgress(prev => {
+        const newProgress = { ...prev };
+        delete newProgress[id];
+        return newProgress;
+      });
       toast({
-        title: "Word Removed",
-        description: "Word has been removed from your study deck."
+        title: "Deck Deleted",
+        description: "Deck has been deleted successfully."
       });
     }
   };
 
   const getStatusCounts = () => {
     return {
-      new: deck.filter(w => w.status === 'new').length,
-      learning: deck.filter(w => w.status === 'learning').length,
-      reviewing: deck.filter(w => w.status === 'reviewing').length,
-      mastered: deck.filter(w => w.status === 'mastered').length,
-      difficult: deck.filter(w => w.status === 'difficult').length,
+      new: Object.values(wordProgress).filter(w => w.status === 'new').length,
+      learning: Object.values(wordProgress).filter(w => w.status === 'learning').length,
+      reviewing: Object.values(wordProgress).filter(w => w.status === 'reviewing').length,
+      mastered: Object.values(wordProgress).filter(w => w.status === 'mastered').length,
+      difficult: Object.values(wordProgress).filter(w => w.status === 'difficult').length,
     };
   };
 
-  const getOverallProgress = () => {
-    const total = deck.length;
-    const mastered = deck.filter(w => w.status === 'mastered').length;
-    return total ? (mastered / total) * 100 : 0;
+  const getProgressPercentage = () => {
+    const total = Object.keys(wordProgress).length;
+    if (total === 0) return 0;
+    const mastered = Object.values(wordProgress).filter(w => w.status === 'mastered').length;
+    return Math.round((mastered / total) * 100);
   };
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <Loader className="animate-spin h-8 w-8 text-primary" />
+      <div className="flex items-center justify-center min-h-[200px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   const statusCounts = getStatusCounts();
-  const progress = getOverallProgress();
+  const progressPercentage = getProgressPercentage();
 
   return (
-    <div className="container mx-auto px-4 py-6 space-y-8">
-      {/* Header with Session Stats */}
-      <div className="text-center space-y-4">
-        <h1 className="text-5xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-          Study Deck
-        </h1>
-        <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
-          Master your vocabulary with our spaced repetition system. Track progress and build your word knowledge systematically.
-        </p>
-        
-        {session.total_studied > 0 && (
-          <div className="flex justify-center gap-4">
-            <XPBadge type="xp" value={session.xp_earned} label="XP earned" size="lg" glowing />
-            <Badge variant="outline" className="text-lg px-4 py-2">
-              {session.total_studied} words studied
-            </Badge>
-          </div>
-        )}
-      </div>
-
+    <div className="space-y-6">
       {/* Progress Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <Card className="border shadow-card col-span-1 md:col-span-2 lg:col-span-1">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-primary" />
-              Overall Progress
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="text-center">
-              <div className="text-3xl font-bold text-primary">{Math.round(progress)}%</div>
-              <div className="text-sm text-muted-foreground">Mastered</div>
-            </div>
-            <Progress value={progress} className="h-3" />
-            <div className="text-center text-sm text-muted-foreground">
-              {statusCounts.mastered} of {deck.length} words mastered
-            </div>
-          </CardContent>
-        </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BookOpen className="w-5 h-5" />
+            Study Progress
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">Overall Progress</span>
+            <span className="text-2xl font-bold text-primary">{progressPercentage}%</span>
+          </div>
+          
+          <div className="text-sm text-muted-foreground">
+            {statusCounts.mastered} of {Object.keys(wordProgress).length} words mastered
+          </div>
 
-        <Card className="border shadow-card">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BookOpen className="h-5 w-5 text-primary" />
-              Status Breakdown
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {Object.entries(statusCounts).map(([status, count]) => {
-              const config = statusConfig[status as keyof typeof statusConfig];
-              const Icon = config.icon;
-              return (
-                <div key={status} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Icon className="h-4 w-4" />
-                    <span className="capitalize">{config.label}</span>
+          {/* Status Breakdown */}
+          <div className="space-y-2">
+            <h4 className="text-sm font-medium">Status Breakdown</h4>
+            <div className="grid grid-cols-2 gap-2">
+              {Object.entries(statusCounts).map(([status, count]) => {
+                const config = statusConfig[status as keyof typeof statusConfig];
+                return (
+                  <div key={status} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-3 h-3 rounded-full ${config.color}`} />
+                      <span className="text-sm">{config.label}</span>
+                    </div>
+                    <Badge variant="secondary">{count}</Badge>
                   </div>
-                  <Badge variant="outline">{count}</Badge>
-                </div>
-              );
-            })}
-          </CardContent>
-        </Card>
-      </div>
+                );
+              })}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Word Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Word List */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold">Your Words</h3>
         {deck.map((entry) => {
-          const config = statusConfig[entry.status];
-          const Icon = config.icon;
-          const wordScore = calculateWordScore(entry.word);
+          const progress = wordProgress[entry.id] || { status: 'new', review_count: 0 };
+          const config = statusConfig[progress.status];
           
           return (
-            <Card 
-              key={entry.id} 
-              className={cn(
-                "border shadow-word-card transition-all duration-300 hover:scale-[1.02] hover:shadow-float",
-                config.color
-              )}
-            >
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xl font-bold tracking-wider">
-                      {entry.word}
-                    </span>
-                    <Badge variant="outline" className="text-xs">
-                      {wordScore} pts
-                    </Badge>
-                  </div>
-                  <Badge className={cn("capitalize", config.color)}>
-                    <Icon className="h-3 w-3 mr-1" />
-                    {config.label}
-                  </Badge>
-                </div>
-              </CardHeader>
-              
-              <CardContent className="space-y-4">
-                {/* Notes Section */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">Personal Notes</span>
-                    {editingNote === entry.id ? (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => updateNotes(entry.id, noteText)}
-                      >
-                        <Save className="h-3 w-3" />
-                      </Button>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setEditingNote(entry.id);
-                          setNoteText(entry.notes || "");
-                        }}
-                      >
-                        <Edit3 className="h-3 w-3" />
-                      </Button>
-                    )}
-                  </div>
-                  
-                  {editingNote === entry.id ? (
-                    <Textarea
-                      value={noteText}
-                      onChange={(e) => setNoteText(e.target.value)}
-                      placeholder="Add your notes, mnemonics, or tips..."
-                      className="text-sm"
-                      rows={3}
-                    />
-                  ) : (
-                    <p className="text-sm text-muted-foreground bg-muted/30 p-2 rounded min-h-[60px]">
-                      {entry.notes || "No notes yet. Click edit to add some!"}
-                    </p>
-                  )}
-                </div>
-
-                {/* Status Actions */}
-                <div className="grid grid-cols-2 gap-2">
-                  {Object.entries(statusConfig).map(([status, conf]) => {
-                    const StatusIcon = conf.icon;
-                    const isActive = entry.status === status;
+            <Card key={entry.id}>
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge className={config.color}>
+                        {config.label}
+                      </Badge>
+                      <span className="text-sm text-muted-foreground">
+                        {entry.words.length} words
+                      </span>
+                    </div>
                     
-                    return (
-                      <Button
-                        key={status}
-                        variant={isActive ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => updateStatus(entry.id, status as StudyWord["status"])}
-                        className={cn(
-                          "text-xs",
-                          isActive && conf.gradient
+                                         <div className="flex items-center justify-between mb-2">
+                       <div className="text-sm text-muted-foreground">
+                         Added: {new Date(entry.created_at).toLocaleDateString()}
+                       </div>
+                       <Button
+                         size="sm"
+                         variant="ghost"
+                         className="text-destructive hover:text-destructive"
+                         onClick={() => deleteDeck(entry.id)}
+                       >
+                         <Trash2 className="w-4 h-4" />
+                       </Button>
+                     </div>
+
+                    {/* Notes Section */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Personal Notes</span>
+                        {editingNote === entry.id ? (
+                          <div className="flex gap-1">
+                            <Button
+                              size="sm"
+                              onClick={() => updateNotes(entry.id, noteText)}
+                            >
+                              <Save className="w-3 h-3" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setEditingNote(null)}
+                            >
+                              <X className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setEditingNote(entry.id);
+                              setNoteText(progress.notes || "");
+                            }}
+                          >
+                            <Edit3 className="w-3 h-3" />
+                          </Button>
                         )}
-                      >
-                        <StatusIcon className="h-3 w-3 mr-1" />
-                        {conf.label}
-                      </Button>
-                    );
-                  })}
-                </div>
+                      </div>
+                      
+                      {editingNote === entry.id ? (
+                        <Textarea
+                          value={noteText}
+                          onChange={(e) => setNoteText(e.target.value)}
+                          placeholder="Add your notes, mnemonics, or tips..."
+                          className="min-h-[80px]"
+                        />
+                      ) : (
+                        <div className="text-sm text-muted-foreground p-2 bg-muted rounded">
+                          {progress.notes || "No notes yet. Click edit to add some!"}
+                        </div>
+                      )}
+                    </div>
 
-                {/* Stats */}
-                <div className="text-xs text-muted-foreground space-y-1">
-                  <div>Reviewed {entry.review_count} times</div>
-                  {entry.last_reviewed && (
-                    <div>Last: {new Date(entry.last_reviewed).toLocaleDateString()}</div>
-                  )}
-                </div>
+                    {/* Status Actions */}
+                    <div className="flex flex-wrap gap-1 mt-3">
+                      {Object.entries(statusConfig).map(([status, conf]) => {
+                        const StatusIcon = conf.icon;
+                        const isActive = progress.status === status;
+                        
+                        return (
+                          <Button
+                            key={status}
+                            size="sm"
+                            variant={isActive ? "default" : "outline"}
+                            onClick={() => updateStatus(entry.id, status as WordProgress[string]["status"])}
+                            className={`${isActive ? conf.color : ""}`}
+                          >
+                            <StatusIcon className="w-3 h-3 mr-1" />
+                            {conf.label}
+                          </Button>
+                        );
+                      })}
+                    </div>
 
-                {/* Remove Button */}
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => removeWord(entry.id)}
-                  className="w-full"
-                >
-                  Remove from Deck
-                </Button>
+                    <div className="text-xs text-muted-foreground mt-2">
+                      <div>Reviewed {progress.review_count} times</div>
+                      {progress.last_reviewed && (
+                        <div>Last: {new Date(progress.last_reviewed).toLocaleDateString()}</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           );
         })}
       </div>
 
-      {deck.length === 0 && (
-        <Card className="border shadow-card">
-          <CardContent className="p-12 text-center space-y-4">
-            <BookOpen className="h-16 w-16 text-muted-foreground mx-auto" />
-            <h3 className="text-2xl font-bold">Your Study Deck is Empty</h3>
-            <p className="text-muted-foreground max-w-md mx-auto">
-              Start building your vocabulary by saving words from the Word Judge, Anagram Solver, or Pattern Matcher!
-            </p>
-            <Button className="bg-gradient-primary hover:opacity-90">
-              Explore Word Tools
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+      {/* Schema Notice */}
+      <Card className="border-yellow-200 bg-yellow-50">
+        <CardContent className="p-4">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5" />
+            <div className="text-sm text-yellow-800">
+              <p className="font-medium mb-1">Note: Limited Functionality</p>
+              <p>
+                Due to database schema limitations, study progress (status, notes, review counts) 
+                is stored locally and will be reset when you refresh the page. 
+                To enable full functionality, the database schema needs to be updated.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
