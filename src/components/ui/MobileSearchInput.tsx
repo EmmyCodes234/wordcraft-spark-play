@@ -95,7 +95,7 @@ const MobileSearchInput: React.FC<MobileSearchInputProps> = ({
             whileTap={{ scale: 0.95 }}
             transition={{ duration: 0.1 }}
           >
-            Search
+            <Search className="w-4 h-4" />
           </motion.button>
         )}
       </form>
