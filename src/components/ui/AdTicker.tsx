@@ -26,7 +26,7 @@ export const AdTicker = () => {
       >
         {adTexts.map((text, index) => (
           <div key={`a-${index}`} className="flex items-center">
-            <span className="px-6 sm:px-12 font-medium text-xs sm:text-sm text-center text-blue-700 hover:text-blue-800 transition-colors">
+            <span className="px-6 sm:px-12 font-medium text-xs sm:text-sm text-center text-black hover:text-gray-800 transition-colors">
               {text}
             </span>
             <div className="h-3 sm:h-4 w-px bg-blue-400 shrink-0"></div>
@@ -34,7 +34,7 @@ export const AdTicker = () => {
         ))}
         {adTexts.map((text, index) => (
           <div key={`b-${index}`} className="flex items-center">
-            <span className="px-4 sm:px-12 font-medium text-xs sm:text-sm text-center text-blue-700 hover:text-blue-800 transition-colors">
+            <span className="px-4 sm:px-12 font-medium text-xs sm:text-sm text-center text-black hover:text-gray-800 transition-colors">
               {text}
             </span>
             <div className="h-3 sm:h-4 w-px bg-blue-400 shrink-0"></div>

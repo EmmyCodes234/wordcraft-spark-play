@@ -454,27 +454,6 @@ export default function Dashboard() {
           </div>
         </motion.div>
 
-        {/* Quick Actions - Collapsible for better organization */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.7 }}
-        >
-          <CollapsibleSection title="Quick Actions" defaultExpanded={true}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {quickActions.map((action, index) => (
-                <motion.div
-                  key={action.title}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.8 + index * 0.1 }}
-                >
-                  <QuickActionCard {...action} />
-                </motion.div>
-              ))}
-            </div>
-          </CollapsibleSection>
-        </motion.div>
 
       </div>
     </div>
