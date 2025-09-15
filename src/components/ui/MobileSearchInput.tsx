@@ -61,11 +61,6 @@ const MobileSearchInput: React.FC<MobileSearchInputProps> = ({
     >
       <form onSubmit={handleSubmit} className="relative">
         <div className="relative">
-          {/* Search Icon */}
-          <div className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground">
-            <Search className="w-5 h-5" />
-          </div>
-
           {/* Input Field */}
           <input
             ref={inputRef}
@@ -77,30 +72,12 @@ const MobileSearchInput: React.FC<MobileSearchInputProps> = ({
             placeholder={placeholder}
             disabled={disabled}
             className={cn(
-              "mobile-search w-full pl-12 pr-16",
+              "mobile-search w-full px-4",
               "focus:ring-2 focus:ring-primary focus:border-primary",
               "disabled:opacity-50 disabled:cursor-not-allowed",
               isFocused && "border-primary shadow-lg"
             )}
           />
-
-          {/* Clear Button */}
-          <AnimatePresence>
-            {value && (
-              <motion.button
-                type="button"
-                onClick={handleClear}
-                className="mobile-haptic absolute right-4 top-1/2 transform -translate-y-1/2 p-2 text-muted-foreground hover:text-foreground transition-colors"
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                transition={{ duration: 0.15 }}
-                disabled={disabled}
-              >
-                <X className="w-5 h-5" />
-              </motion.button>
-            )}
-          </AnimatePresence>
         </div>
 
         {/* Search Button (for mobile) */}

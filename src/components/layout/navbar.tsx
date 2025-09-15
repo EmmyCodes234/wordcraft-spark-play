@@ -43,7 +43,7 @@ export default function Navbar() {
             }}
           >
             <span className="text-base sm:text-lg lg:text-xl text-foreground">WordSmith</span>
-            <span className="hidden sm:inline border border-border text-muted-foreground text-xs font-semibold rounded-full px-2 py-0.5">
+            <span className="border border-primary text-primary text-xs font-semibold rounded-full px-2 py-0.5 bg-primary/10">
               BETA
             </span>
           </Link>

@@ -156,7 +156,7 @@ export default function StudyPage() {
           <Button variant="destructive" className="h-16 text-lg" onClick={() => handleReview(1)}>Again</Button>
           <Button variant="outline" className="h-16 text-lg" onClick={() => handleReview(2)}>Hard</Button>
           <Button variant="default" className="h-16 text-lg" onClick={() => handleReview(3)}>Good</Button>
-          <Button variant="secondary" className="h-16 text-lg bg-blue-500 text-white" onClick={() => handleReview(4)}>Easy</Button>
+          <Button variant="secondary" className="h-16 text-lg bg-primary text-primary-foreground" onClick={() => handleReview(4)}>Easy</Button>
         </div>
       ) : (
         <Button className="h-16 text-xl px-20" onClick={handleFlipCard}>Show Answer</Button>

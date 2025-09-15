@@ -42,7 +42,7 @@ interface WordProgress {
 
 const statusConfig = {
   new: { label: "New", icon: BookOpen, color: "bg-gray-500", xp: 0 },
-  learning: { label: "Learning", icon: Clock, color: "bg-blue-500", xp: 5 },
+  learning: { label: "Learning", icon: Clock, color: "bg-primary", xp: 5 },
   reviewing: { label: "Reviewing", icon: AlertCircle, color: "bg-yellow-500", xp: 10 },
   mastered: { label: "Mastered", icon: CheckCircle, color: "bg-green-500", xp: 20 },
   difficult: { label: "Difficult", icon: Target, color: "bg-red-500", xp: 15 },

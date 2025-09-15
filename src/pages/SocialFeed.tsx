@@ -211,12 +211,12 @@ export default function SocialFeed() {
   const getPostIcon = (type: string) => {
     switch (type) {
       case 'achievement': return <Trophy className="h-5 w-5 text-yellow-500" />;
-      case 'word_discovery': return <Star className="h-5 w-5 text-blue-500" />;
+      case 'word_discovery': return <Star className="h-5 w-5 text-primary" />;
       case 'quiz_result': return <Target className="h-5 w-5 text-green-500" />;
       case 'streak': return <Zap className="h-5 w-5 text-orange-500" />;
       case 'challenge_complete': return <Trophy className="h-5 w-5 text-orange-500" />;
       case 'user_post': return <Star className="h-5 w-5 text-purple-500" />;
-      case 'shared_post': return <Crown className="h-5 w-5 text-blue-500" />;
+      case 'shared_post': return <Crown className="h-5 w-5 text-primary" />;
       default: return <Star className="h-5 w-5 text-gray-500" />;
     }
   };

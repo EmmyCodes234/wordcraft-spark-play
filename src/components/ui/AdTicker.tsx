@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useTheme } from "@/context/ThemeContext";
 
 const adTexts = [
   "🏆 Lekki Scrabble Classics 2025 - Peninsula Hotel & Towers, Lekki - September 27-28, 2025",
@@ -10,9 +11,16 @@ const adTexts = [
 
 export const AdTicker = () => {
   const isMobile = useIsMobile();
+  const { colors } = useTheme();
 
   return (
-    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 text-primary w-full flex items-center overflow-hidden border-b border-blue-200 h-10 sm:h-12 transition-colors duration-300">
+    <div 
+      className="text-primary w-full flex items-center overflow-hidden border-b h-10 sm:h-12 transition-colors duration-300"
+      style={{
+        background: `linear-gradient(to right, ${colors.primary}15, ${colors.accent}15)`,
+        borderColor: colors.primary + '40'
+      }}
+    >
       <motion.div
         className="flex items-center whitespace-nowrap"
         animate={{
@@ -29,7 +37,10 @@ export const AdTicker = () => {
             <span className="px-6 sm:px-12 font-medium text-xs sm:text-sm text-center text-black hover:text-gray-800 transition-colors">
               {text}
             </span>
-            <div className="h-3 sm:h-4 w-px bg-blue-400 shrink-0"></div>
+            <div 
+              className="h-3 sm:h-4 w-px shrink-0"
+              style={{ backgroundColor: colors.primary + '80' }}
+            ></div>
           </div>
         ))}
         {adTexts.map((text, index) => (
@@ -37,7 +48,10 @@ export const AdTicker = () => {
             <span className="px-4 sm:px-12 font-medium text-xs sm:text-sm text-center text-black hover:text-gray-800 transition-colors">
               {text}
             </span>
-            <div className="h-3 sm:h-4 w-px bg-blue-400 shrink-0"></div>
+            <div 
+              className="h-3 sm:h-4 w-px shrink-0"
+              style={{ backgroundColor: colors.primary + '80' }}
+            ></div>
           </div>
         ))}
       </motion.div>

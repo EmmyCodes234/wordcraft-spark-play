@@ -125,7 +125,7 @@ const SwipeableCard: React.FC<SwipeableCardProps> = ({
           {/* Up swipe indicator */}
           {onSwipeUp && (
             <motion.div
-              className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white px-3 py-2 rounded-lg text-sm font-semibold"
+              className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-primary text-primary-foreground px-3 py-2 rounded-lg text-sm font-semibold"
               style={{
                 opacity: useTransform(y, [-200, -100], [1, 0])
               }}

@@ -121,7 +121,7 @@ export default function CommunityEvents() {
 
   const getEventIcon = (type: string) => {
     switch (type) {
-      case 'daily': return <Calendar className="h-5 w-5 text-blue-500" />;
+      case 'daily': return <Calendar className="h-5 w-5 text-primary" />;
       case 'weekly': return <Star className="h-5 w-5 text-purple-500" />;
       case 'monthly': return <Crown className="h-5 w-5 text-yellow-500" />;
       case 'special': return <Zap className="h-5 w-5 text-red-500" />;

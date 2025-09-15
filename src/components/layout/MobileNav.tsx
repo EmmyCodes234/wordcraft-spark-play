@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import { useTheme } from '@/context/ThemeContext';
 import { 
   Home, 
   BookOpen, 
@@ -20,6 +21,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 const MobileNav = () => {
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { colors } = useTheme();
 
   const navItems = [
     {
@@ -84,7 +86,8 @@ const MobileNav = () => {
         <motion.button
           whileTap={{ scale: 0.9 }}
           onClick={() => setIsMenuOpen(!isMenuOpen)}
-          className="mobile-haptic bg-green-600 text-white p-3 rounded-2xl shadow-lg"
+          className="mobile-haptic text-white p-3 rounded-2xl shadow-lg"
+          style={{ backgroundColor: colors.primary }}
         >
           <motion.div
             animate={{ rotate: isMenuOpen ? 180 : 0 }}
@@ -139,9 +142,12 @@ const MobileNav = () => {
                         className={cn(
                           "mobile-haptic flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200",
                           active
-                            ? "bg-green-600 text-white"
+                            ? "text-white"
                             : "text-gray-700 hover:text-black hover:bg-gray-100"
                         )}
+                        style={{
+                          backgroundColor: active ? colors.primary : 'transparent'
+                        }}
                       >
                         <Icon className="w-5 h-5" />
                         <span className="font-medium">{item.label}</span>

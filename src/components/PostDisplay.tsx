@@ -79,7 +79,7 @@ export default function PostDisplay({ post, onPostUpdated }: PostDisplayProps) {
   const [showReactions, setShowReactions] = useState(false);
 
   const reactionTypes = [
-    { type: 'like', emoji: '👍', color: 'text-blue-500' },
+    { type: 'like', emoji: '👍', color: 'text-primary' },
     { type: 'love', emoji: '❤️', color: 'text-red-500' },
     { type: 'laugh', emoji: '😂', color: 'text-yellow-500' },
     { type: 'wow', emoji: '😮', color: 'text-purple-500' },
@@ -265,7 +265,7 @@ export default function PostDisplay({ post, onPostUpdated }: PostDisplayProps) {
   };
 
   const getReactionColor = (type: string) => {
-    return reactionTypes.find(r => r.type === type)?.color || 'text-blue-500';
+    return reactionTypes.find(r => r.type === type)?.color || 'text-primary';
   };
 
   return (
@@ -353,7 +353,7 @@ export default function PostDisplay({ post, onPostUpdated }: PostDisplayProps) {
               variant="ghost"
               size="sm"
               onClick={() => handleReaction('like')}
-              className={`flex items-center space-x-2 ${post.user_reaction === 'like' ? 'text-blue-500' : ''}`}
+              className={`flex items-center space-x-2 ${post.user_reaction === 'like' ? 'text-primary' : ''}`}
             >
               <ThumbsUp className="h-4 w-4" />
               <span>Like</span>

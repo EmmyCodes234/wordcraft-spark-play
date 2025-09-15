@@ -345,7 +345,7 @@ export const AchievementProvider: React.FC<{ children: React.ReactNode }> = ({ c
                       <Badge variant="outline" className={`text-xs ${
                         achievement.rarity === 'legendary' ? 'border-yellow-500 text-yellow-600' :
                         achievement.rarity === 'epic' ? 'border-purple-500 text-purple-600' :
-                        achievement.rarity === 'rare' ? 'border-blue-500 text-blue-600' :
+                        achievement.rarity === 'rare' ? 'border-primary text-primary' :
                         'border-green-500 text-green-600'
                       }`}>
                         {achievement.rarity}
