@@ -33,7 +33,7 @@ export default function BlogPage() {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
         {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-8">
           <Link to="/dashboard">
             <Button variant="outline" size="sm">
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -41,8 +41,8 @@ export default function BlogPage() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-3xl font-bold">Scrabble Blog</h1>
-            <p className="text-muted-foreground">Tips, strategies, and insights for Scrabble enthusiasts</p>
+            <h1 className="text-2xl sm:text-3xl font-bold">Scrabble Blog</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">Tips, strategies, and insights for Scrabble enthusiasts</p>
           </div>
         </div>
 
