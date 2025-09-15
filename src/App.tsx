@@ -32,6 +32,9 @@ import SocialFeed from '@/pages/SocialFeed';
 import FriendsPage from '@/pages/FriendsPage';
 import CommunityEvents from '@/pages/CommunityEvents';
 import DatabaseTest from '@/components/DatabaseTest';
+import BlogPage from '@/pages/BlogPage';
+import AnnouncementsPage from '@/pages/AnnouncementsPage';
+import LekkiScrabbleClassics from '@/pages/LekkiScrabbleClassics';
 
 // --- NEW: Import Leaderboard and Public Decks Pages ---
 // // import LeaderboardPage from '@/pages/LeaderboardPage'; // Assuming path: src/pages/LeaderboardPage.tsx
@@ -74,6 +77,15 @@ function App() {
                   <Route path="/friends" element={<FriendsPage />} />
                   <Route path="/events" element={<CommunityEvents />} />
                   <Route path="/db-test" element={<DatabaseTest />} />
+                  
+                  {/* --- Blog Routes --- */}
+                  <Route path="/blog" element={<BlogPage />} />
+                  
+                  {/* --- Announcements Routes --- */}
+                  <Route path="/announcements" element={<AnnouncementsPage />} />
+                  
+                  {/* --- Tournament Routes --- */}
+                  <Route path="/lekki-scrabble-classics" element={<LekkiScrabbleClassics />} />
                   
                   {/* --- END NEW --- */}
 

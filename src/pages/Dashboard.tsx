@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { Link } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { DashboardSkeleton } from "@/components/ui/loading";
+import { AnnouncementCard, sampleAnnouncements } from "@/components/AnnouncementCard";
 
 // Helper function to calculate word score
 const letterScores: { [key: string]: number } = {
@@ -414,11 +415,50 @@ export default function Dashboard() {
           </Card>
         </motion.div>
 
-        {/* Quick Actions - Collapsible for better organization */}
+        {/* Featured Announcements */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.5 }}
+        >
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-foreground">Announcements</h2>
+            <Link to="/announcements">
+              <Button variant="outline" size="sm">
+                View All
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {sampleAnnouncements.filter(announcement => announcement.featured).slice(0, 2).map((announcement, index) => (
+              <motion.div
+                key={announcement.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.6 + index * 0.1 }}
+              >
+                <AnnouncementCard 
+                  announcement={announcement} 
+                  onClick={(announcement) => {
+                    // Navigate to registration website for Lekki Scrabble Classics
+                    if (announcement.id === '1') {
+                      window.open('https://www.classics.lekkiscrabbleclub.com', '_blank');
+                    } else {
+                      window.location.href = `/announcements?announcement=${announcement.id}`;
+                    }
+                  }}
+                />
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* Quick Actions - Collapsible for better organization */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.7 }}
         >
           <CollapsibleSection title="Quick Actions" defaultExpanded={true}>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -427,7 +467,7 @@ export default function Dashboard() {
                   key={action.title}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.6 + index * 0.1 }}
+                  transition={{ duration: 0.6, delay: 0.8 + index * 0.1 }}
                 >
                   <QuickActionCard {...action} />
                 </motion.div>
@@ -435,6 +475,7 @@ export default function Dashboard() {
             </div>
           </CollapsibleSection>
         </motion.div>
+
       </div>
     </div>
   );
