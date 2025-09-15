@@ -28,6 +28,10 @@ import StudyDeck from '@/pages/StudyDeck';
 import Profile from '@/pages/Profile';
 import Settings from '@/pages/Settings';
 import TournamentAdjudicator from '@/pages/TournamentAdjudicator';
+import SocialFeed from '@/pages/SocialFeed';
+import FriendsPage from '@/pages/FriendsPage';
+import CommunityEvents from '@/pages/CommunityEvents';
+import DatabaseTest from '@/components/DatabaseTest';
 
 // --- NEW: Import Leaderboard and Public Decks Pages ---
 // // import LeaderboardPage from '@/pages/LeaderboardPage'; // Assuming path: src/pages/LeaderboardPage.tsx
@@ -66,7 +70,10 @@ function App() {
                   <Route path="/tournament-adjudicator" element={<TournamentAdjudicator />} />
                   
                   {/* --- NEW: Social Features Routes --- */}
-                  {/*  */}
+                  <Route path="/social" element={<SocialFeed />} />
+                  <Route path="/friends" element={<FriendsPage />} />
+                  <Route path="/events" element={<CommunityEvents />} />
+                  <Route path="/db-test" element={<DatabaseTest />} />
                   
                   {/* --- END NEW --- */}
 

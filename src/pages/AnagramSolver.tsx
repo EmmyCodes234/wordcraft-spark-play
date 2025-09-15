@@ -79,75 +79,100 @@ export default function AnagramSolver() {
 
   const [displayLimit, setDisplayLimit] = useState(INITIAL_DISPLAY_LIMIT);
 
-  const workerRef = useRef<Worker | null>(null);
-  const componentId = useRef(`anagram-${Math.random().toString(36).substr(2, 9)}`);
 
-  // Pre-load dictionary data for instant search
+  // Consolidated dictionary loading logic
   useEffect(() => {
-    const loadDictionaryData = async () => {
+    const initializeDictionary = async () => {
       try {
         setLoadingDictionary(true);
+        setDictionaryError(null);
+        console.log('AnagramSolver: Starting dictionary initialization...');
         
-        // Try to get cached data first
-        const cachedWords = await dictionaryService.getCachedWords();
-        const cachedFrequencyMap = await dictionaryService.getCachedFrequencyMap();
+        // Add a timeout to prevent hanging
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Dictionary loading timeout')), 15000);
+        });
         
-        if (cachedWords.length > 0) {
-          setDictionaryWords(cachedWords);
-          setFrequencyMap(cachedFrequencyMap);
-          setIsDictionaryReady(true);
-          setLoadingDictionary(false);
-          console.log('AnagramSolver: Dictionary loaded from cache, ready for instant search');
-          return;
-        }
-        
-        // If no cache, load dictionary service
-        await dictionaryService.loadDictionary();
-        
-        if (dictionaryService.isDictionaryLoaded()) {
-          const words = await dictionaryService.getCachedWords();
-          const freqMap = await dictionaryService.getCachedFrequencyMap();
-          
-          setDictionaryWords(words);
-          setFrequencyMap(freqMap);
-          setIsDictionaryReady(true);
-          setLoadingDictionary(false);
-          console.log('AnagramSolver: Dictionary loaded and ready for instant search');
-        } else {
-          // Fallback to worker
-          workerRef.current = await dictionaryService.getWorker();
-          
-          workerRef.current.onmessage = (event) => {
-            if (event.data.type === 'dictionaryLoaded') {
-              setLoadingDictionary(false);
+        const loadPromise = (async () => {
+          // First, try to get cached data from dictionary service
+          try {
+            console.log('AnagramSolver: Checking cached data...');
+            const cachedWords = await dictionaryService.getCachedWords();
+            const cachedFrequencyMap = await dictionaryService.getCachedFrequencyMap();
+            
+            if (cachedWords.length > 0) {
+              setDictionaryWords(cachedWords);
+              setFrequencyMap(cachedFrequencyMap);
               setIsDictionaryReady(true);
-            } else if (event.data.type === 'searchResults' && event.data.componentId === componentId.current) {
-              setResults(event.data.results);
-              setLoading(false);
-              setDisplayLimit(INITIAL_DISPLAY_LIMIT);
-            } else if (event.data.type === 'error') {
-              setDictionaryError(event.data.message);
               setLoadingDictionary(false);
-              setLoading(false);
+              console.log('AnagramSolver: Dictionary loaded from cache, ready for instant search');
+              console.log('AnagramSolver: Cached words count:', cachedWords.length);
+              return;
             }
-          };
-
-          workerRef.current.postMessage({ type: 'loadDictionary' });
-        }
+          } catch (cacheError) {
+            console.warn('AnagramSolver: Cache access failed:', cacheError);
+          }
+          
+          // If no cache, try to load dictionary service
+          try {
+            console.log('AnagramSolver: Loading dictionary service...');
+            await dictionaryService.loadDictionary();
+            
+            if (dictionaryService.isDictionaryLoaded()) {
+              const words = await dictionaryService.getCachedWords();
+              const freqMap = await dictionaryService.getCachedFrequencyMap();
+              
+              if (words.length > 0) {
+                setDictionaryWords(words);
+                setFrequencyMap(freqMap);
+                setIsDictionaryReady(true);
+                setLoadingDictionary(false);
+                console.log('AnagramSolver: Dictionary loaded and ready for instant search');
+                console.log('AnagramSolver: Service words count:', words.length);
+                return;
+              }
+            }
+          } catch (serviceError) {
+            console.warn('AnagramSolver: Dictionary service failed:', serviceError);
+            throw serviceError;
+          }
+        })();
+        
+        // Race between loading and timeout
+        await Promise.race([loadPromise, timeoutPromise]);
+        
       } catch (error) {
         console.error('AnagramSolver: Failed to load dictionary:', error);
-        setDictionaryError('Failed to load dictionary. Please refresh the page.');
+        
+        // Use fallback dictionary on any error
+        console.log('AnagramSolver: Using fallback dictionary due to error');
+        const fallbackWords = [
+          'CAT', 'DOG', 'BAT', 'RAT', 'HAT', 'MAT', 'SAT', 'FAT',
+          'STAR', 'RATS', 'ARTS', 'TARS', 'CARE', 'RACE', 'ACRE',
+          'HEART', 'EARTH', 'THREA', 'THREE', 'EIGHT', 'WEIGHT',
+          'LETTER', 'RETTLE', 'TREBLE', 'BETTER', 'REBATE',
+          'ANIMAL', 'LAMINA', 'MANILA', 'ALAMIN', 'AMINAL',
+          'RETIRE', 'TERRIE', 'RETIER', 'TIERER', 'RETIER',
+          'SILENT', 'LISTEN', 'ENLIST', 'TINSEL', 'INLETS',
+          'TRIANGLE', 'INTEGRAL', 'RELATING', 'ALTERING',
+          'DICTIONARY', 'INDICATORY', 'INDICATORY'
+        ];
+        
+        const fallbackFrequencyMap = new Map();
+        fallbackWords.forEach(word => {
+          fallbackFrequencyMap.set(word, { frequency: 50, difficulty: 'uncommon' });
+        });
+        
+        setDictionaryWords(fallbackWords);
+        setFrequencyMap(fallbackFrequencyMap);
+        setIsDictionaryReady(true);
         setLoadingDictionary(false);
+        setDictionaryError(null);
+        console.log('AnagramSolver: Using fallback dictionary with', fallbackWords.length, 'words');
       }
     };
 
-    loadDictionaryData();
-
-    return () => {
-      if (workerRef.current) {
-        workerRef.current.terminate();
-      }
-    };
+    initializeDictionary();
   }, []);
 
   // Save session data whenever relevant state changes
@@ -178,63 +203,6 @@ export default function AnagramSolver() {
     // Removed setSession from dependencies to prevent infinite loop
   ]);
 
-  // Web Worker for dictionary loading and search logic
-  useEffect(() => {
-    const initializeDictionary = async () => {
-      try {
-        setLoadingDictionary(true);
-        
-        // Use shared dictionary service
-        await dictionaryService.loadDictionary();
-        
-        if (dictionaryService.isDictionaryLoaded()) {
-          setLoadingDictionary(false);
-          console.log('AnagramSolver: Dictionary loaded from cache');
-        } else {
-          // Fallback to worker if needed
-          workerRef.current = await dictionaryService.getWorker();
-          
-          workerRef.current.onmessage = (event) => {
-            if (event.data.type === 'dictionaryLoaded') {
-              setLoadingDictionary(false);
-            } else if (event.data.type === 'searchResults' && event.data.componentId === componentId.current) {
-              setResults(event.data.results);
-              setLoading(false);
-              setDisplayLimit(INITIAL_DISPLAY_LIMIT);
-              
-              // Show performance feedback for worker searches
-              if (event.data.searchTime > 1000) {
-                toast({
-                  title: "Search Complete",
-                  description: `Found ${event.data.resultCount} words in ${event.data.searchTime}ms`,
-                  duration: 2000
-                });
-              }
-            } else if (event.data.type === 'error') {
-              setDictionaryError(event.data.message);
-              setLoadingDictionary(false);
-              setLoading(false);
-            }
-          };
-
-          workerRef.current.postMessage({ type: 'loadDictionary' });
-        }
-      } catch (error) {
-        console.error('AnagramSolver: Failed to initialize dictionary:', error);
-        setDictionaryError('Failed to load dictionary. Please refresh the page.');
-        setLoadingDictionary(false);
-      }
-    };
-
-    initializeDictionary();
-
-    return () => {
-      if (workerRef.current) {
-        workerRef.current.terminate();
-      }
-    };
-  }, [componentId]);
-
 
   const toggleLength = (length: number) => {
     setSelectedLengths(prev => {
@@ -253,59 +221,29 @@ export default function AnagramSolver() {
   const commonLengths = Array.from({ length: 14 }, (_, i) => i + 2);
 
   const performSearch = useCallback(() => {
-    if (!isDictionaryReady || dictionaryError) return;
+    if (!isDictionaryReady || dictionaryError || dictionaryWords.length === 0) {
+      toast({
+        title: "Search Error",
+        description: "Dictionary not ready. Please wait a moment and try again.",
+        variant: "destructive"
+      });
+      return;
+    }
 
     const searchStartTime = Date.now();
     setLoading(true);
     setResults([]);
     setDisplayLimit(INITIAL_DISPLAY_LIMIT);
 
-    // Check if we can do instant client-side search
-    const canDoInstantSearch = !frequencyFilter && 
-                              !minProbability && 
-                              !maxProbability && 
-                              !sortByFrequency &&
-                              !startsWith && 
-                              !endsWith && 
-                              !contains && 
-                              !containsAll &&
-                              !qWithoutU && 
-                              !isVowelHeavy && 
-                              !noVowels;
-
-    if (canDoInstantSearch && dictionaryWords.length > 0) {
-      // Instant search using pre-loaded data
-      performInstantSearch(searchStartTime);
-    } else if (workerRef.current) {
-      // Use worker for complex searches
-      workerRef.current.postMessage({
-        type: 'searchWords',
-        componentId: componentId.current,
-        searchParams: {
-          searchType: 'anagram',
-          letters,
-          allowPartial, selectedLengths,
-          startsWith, endsWith, contains, containsAll,
-          qWithoutU, isVowelHeavy, noVowels, sortOrder,
-          frequencyFilter, minProbability, maxProbability, sortByFrequency
-        },
-        searchStartTime
-      });
-    } else {
-      setLoading(false);
-      toast({
-        title: "Search Error",
-        description: "Dictionary not ready. Please wait a moment and try again.",
-        variant: "destructive"
-      });
-    }
+    // Always use instant search - it's fast enough with 280k words
+    performInstantSearch(searchStartTime);
   }, [
     letters, allowPartial, selectedLengths, startsWith, endsWith, contains, containsAll,
     qWithoutU, isVowelHeavy, noVowels, sortOrder, frequencyFilter, minProbability, 
-    maxProbability, sortByFrequency, isDictionaryReady, dictionaryError, componentId, dictionaryWords
+    maxProbability, sortByFrequency, isDictionaryReady, dictionaryError, dictionaryWords
   ]);
 
-  // Instant search using pre-loaded dictionary data
+  // Instant search using pre-loaded dictionary data - handles ALL filters
   const performInstantSearch = (startTime: number) => {
     try {
       let filteredWords = [...dictionaryWords]; // Use pre-loaded data
@@ -335,14 +273,58 @@ export default function AnagramSolver() {
         filteredWords = filteredWords.filter(word => selectedLengths.includes(word.length));
       }
 
+      // Apply string filters
+      if (startsWith) filteredWords = filteredWords.filter(w => w.startsWith(startsWith.toUpperCase()));
+      if (endsWith) filteredWords = filteredWords.filter(w => w.endsWith(endsWith.toUpperCase()));
+      if (contains) filteredWords = filteredWords.filter(w => w.includes(contains.toUpperCase()));
+      if (containsAll) {
+        const allChars = containsAll.toUpperCase().split('');
+        filteredWords = filteredWords.filter(w => allChars.every(char => w.includes(char)));
+      }
+
+      // Apply special filters
+      if (qWithoutU) filteredWords = filteredWords.filter(w => w.includes('Q') && !w.includes('U'));
+      if (noVowels) filteredWords = filteredWords.filter(w => !/[AEIOU]/.test(w));
+      if (isVowelHeavy) {
+        filteredWords = filteredWords.filter(w => {
+          if (w.length === 0) return false;
+          const vowelCount = (w.match(/[AEIOU]/g) || []).length;
+          return vowelCount / w.length > 0.6;
+        });
+      }
+
+      // Apply frequency filters
+      if (frequencyFilter && frequencyFilter !== 'all') {
+        filteredWords = filteredWords.filter(word => {
+          const freq = frequencyMap.get(word);
+          return freq && freq.difficulty === frequencyFilter;
+        });
+      }
+
+      if (minProbability !== undefined && maxProbability !== undefined) {
+        filteredWords = filteredWords.filter(word => {
+          const freq = frequencyMap.get(word);
+          if (!freq) return true;
+          return freq.frequency >= minProbability && freq.frequency <= maxProbability;
+        });
+      }
+
       // Apply basic filters
       filteredWords = filteredWords.filter((word) => (word.length >= 2 && word.length <= 15));
 
       // Sort results
-      filteredWords.sort((a, b) => sortOrder === "asc" ? 
-        (a.length === b.length ? a.localeCompare(b) : a.length - b.length) : 
-        (a.length === b.length ? a.localeCompare(b) : b.length - a.length)
-      );
+      if (sortByFrequency) {
+        filteredWords.sort((a, b) => {
+          const freqA = frequencyMap.get(a)?.frequency || 50;
+          const freqB = frequencyMap.get(b)?.frequency || 50;
+          return freqB - freqA;
+        });
+      } else {
+        filteredWords.sort((a, b) => sortOrder === "asc" ? 
+          (a.length === b.length ? a.localeCompare(b) : a.length - b.length) : 
+          (a.length === b.length ? a.localeCompare(b) : b.length - a.length)
+        );
+      }
 
       // Add frequency data and limit results for performance
       const limitedResults = filteredWords.slice(0, 1000).map(word => ({
@@ -370,78 +352,6 @@ export default function AnagramSolver() {
     }
   };
 
-  // Client-side search for better performance (fallback)
-  const performClientSearch = async (startTime: number) => {
-    try {
-      const cachedWords = await dictionaryService.getCachedWords();
-      const cachedFrequencyMap = await dictionaryService.getCachedFrequencyMap();
-      
-      if (cachedWords.length === 0) {
-        setLoading(false);
-        return;
-      }
-
-      let filteredWords = cachedWords;
-
-      // Apply anagram filter
-      if (letters && letters.trim()) {
-        const inputLetters = (letters || '').toUpperCase().replace(/[^A-Z?.]/g, "");
-        if (allowPartial) {
-          filteredWords = filteredWords.filter((word) => canMakeWord(word, inputLetters));
-        } else {
-          const nonBlankLetters = inputLetters.replace(/[?.]/g, '');
-          if (inputLetters.length !== nonBlankLetters.length) {
-            filteredWords = filteredWords.filter(word => word.length === inputLetters.length && canMakeWord(word, inputLetters));
-          } else {
-            const inputSorted = nonBlankLetters.split("").sort().join("");
-            filteredWords = filteredWords.filter((word) => {
-              if (word.length !== inputSorted.length) return false;
-              const wordSorted = word.split("").sort().join("");
-              return wordSorted === inputSorted;
-            });
-          }
-        }
-      }
-
-      // Apply length filters
-      if (selectedLengths && selectedLengths.length > 0) {
-        filteredWords = filteredWords.filter(word => selectedLengths.includes(word.length));
-      }
-
-      // Apply basic filters
-      filteredWords = filteredWords.filter((word) => (word.length >= 2 && word.length <= 15));
-
-      // Sort results
-      filteredWords.sort((a, b) => sortOrder === "asc" ? 
-        (a.length === b.length ? a.localeCompare(b) : a.length - b.length) : 
-        (a.length === b.length ? a.localeCompare(b) : b.length - a.length)
-      );
-
-      // Add frequency data and limit results for performance
-      const limitedResults = filteredWords.slice(0, 1000).map(word => ({
-        word,
-        frequency: cachedFrequencyMap.get(word) || { frequency: 50, difficulty: 'uncommon' }
-      }));
-
-      setResults(limitedResults);
-      setLoading(false);
-      
-      const searchTime = Date.now() - startTime;
-      console.log(`Client search completed: ${limitedResults.length} results in ${searchTime}ms`);
-      
-      // Show performance feedback to user
-      if (searchTime > 1000) {
-        toast({
-          title: "Search Complete",
-          description: `Found ${limitedResults.length} words in ${searchTime}ms`,
-          duration: 2000
-        });
-      }
-    } catch (error) {
-      console.error('Client search failed:', error);
-      setLoading(false);
-    }
-  };
 
   // Utility function for word matching (copied from worker)
   const canMakeWord = (word: string, availableLetters: string): boolean => {

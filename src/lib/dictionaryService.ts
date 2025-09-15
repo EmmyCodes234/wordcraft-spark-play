@@ -99,6 +99,8 @@ class DictionaryService {
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
+        console.log(`DictionaryService: Attempt ${attempt} - fetching dictionary...`);
+        
         // Use fetch with streaming for better performance
         const response = await fetch('/dictionaries/CSW24.txt', {
           headers: {
@@ -107,19 +109,27 @@ class DictionaryService {
           }
         });
 
+        console.log(`DictionaryService: Response status: ${response.status}`);
+        
         if (!response.ok) {
-          throw new Error(`Failed to fetch dictionary: ${response.status}`);
+          throw new Error(`Failed to fetch dictionary: ${response.status} ${response.statusText}`);
         }
 
+        console.log('DictionaryService: Reading response text...');
         const text = await response.text();
+        console.log(`DictionaryService: Received ${text.length} characters`);
+        
         const words = text.split('\n')
           .map(w => w.trim().toUpperCase())
           .filter(w => w.length >= 2 && w.length <= 15);
+
+        console.log(`DictionaryService: Processed ${words.length} words`);
 
         // Process frequency data in chunks for better performance
         const frequencyMap = new Map<string, any>();
         const chunkSize = 5000;
         
+        console.log('DictionaryService: Calculating frequencies...');
         for (let i = 0; i < words.length; i += chunkSize) {
           const chunk = words.slice(i, i + chunkSize);
           chunk.forEach(word => {
@@ -132,6 +142,7 @@ class DictionaryService {
           }
         }
 
+        console.log(`DictionaryService: Completed frequency calculation for ${frequencyMap.size} words`);
         return { words, frequencyMap };
       } catch (error) {
         lastError = error as Error;
