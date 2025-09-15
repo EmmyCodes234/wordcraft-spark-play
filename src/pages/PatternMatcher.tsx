@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Brain, Search, Lightbulb, X as XIcon, Loader2 } from "lucide-react"; // Loader2 is correctly imported here
+import { Brain, Search, Lightbulb, X as XIcon, Loader2, Download } from "lucide-react"; // Loader2 is correctly imported here
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import jsPDF from "jspdf";
 
 import { FixedSizeList } from 'react-window';
 
@@ -107,6 +108,75 @@ export default function PatternMatcher() {
 
   const handleLoadMore = () => {
     setDisplayLimit(prevLimit => prevLimit + LOAD_MORE_AMOUNT);
+  };
+
+  // Export functions for ALL results
+  const exportAsTxt = () => {
+    const header = `Pattern Matcher Results\nGenerated on: ${new Date().toLocaleDateString()}\nLetters: ${letters || 'Any'}\nPattern: ${pattern || 'Any'}\nInclude Dictionary Words: ${includeDictionaryWords}\nTotal words found: ${results.length}\n\n`;
+    
+    const content = header + results.join('\n');
+    
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `pattern-results-${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const exportAsPdf = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text('Pattern Matcher Results', 20, 20);
+    doc.setFontSize(12);
+    
+    let y = 40;
+    const pageHeight = 280; // A4 page height minus margins
+    const lineHeight = 6; // Increased line height for better readability
+    
+    // Add summary information
+    doc.text(`Total words found: ${results.length}`, 20, y);
+    y += lineHeight;
+    doc.text(`Letters: ${letters || 'Any'}`, 20, y);
+    y += lineHeight;
+    doc.text(`Pattern: ${pattern || 'Any'}`, 20, y);
+    y += lineHeight;
+    doc.text(`Include Dictionary Words: ${includeDictionaryWords}`, 20, y);
+    y += lineHeight;
+    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 20, y);
+    y += lineHeight * 2; // Extra space before words
+    
+    let wordIndex = 0;
+    let currentPage = 1;
+    
+    while (wordIndex < results.length) {
+      // Check if we need a new page
+      if (y + lineHeight > pageHeight) {
+        doc.addPage();
+        currentPage++;
+        y = 20; // Reset to top of new page
+      }
+      
+      // Add page number for pages after the first
+      if (currentPage > 1) {
+        doc.setFontSize(10);
+        doc.text(`Page ${currentPage}`, 20, 15);
+        doc.setFontSize(12);
+        y = 25; // Start content below page number
+      }
+      
+      // Add words to current page
+      while (wordIndex < results.length && y + lineHeight <= pageHeight) {
+        doc.text(results[wordIndex], 20, y);
+        y += lineHeight;
+        wordIndex++;
+      }
+    }
+    
+    doc.save(`pattern-results-${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   const isSearchButtonDisabled = loading || loadingDictionary || dictionaryError !== null || (!letters.trim() && !pattern.trim());
@@ -305,11 +375,21 @@ export default function PatternMatcher() {
                   </div>
               )}
             </CardContent>
-            <CardFooter className="p-6 border-t mt-4 text-muted-foreground text-sm">
-              <span className="flex items-center gap-1">
-                <Lightbulb className="h-4 w-4" />
-                Tip: Use '_' for blank tiles in your pattern (e.g., "APP_E" for APPLE).
-              </span>
+            <CardFooter className="p-6 border-t mt-4">
+              <div className="flex items-center justify-between w-full">
+                <span className="flex items-center gap-1 text-muted-foreground text-sm">
+                  <Lightbulb className="h-4 w-4" />
+                  Tip: Use '_' for blank tiles in your pattern (e.g., "APP_E" for APPLE).
+                </span>
+                <div className="flex gap-2">
+                  <Button onClick={exportAsTxt} variant="outline" size="sm">
+                    <Download className="mr-2 h-4 w-4" /> Export TXT
+                  </Button>
+                  <Button onClick={exportAsPdf} variant="outline" size="sm">
+                    <Download className="mr-2 h-4 w-4" /> Export PDF
+                  </Button>
+                </div>
+              </div>
             </CardFooter>
           </Card>
         ) : (!loading && dictionaryError === null && !letters.trim() && !pattern.trim() && results.length === 0) ? (

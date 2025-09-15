@@ -492,12 +492,15 @@ export default function AnagramSolver() {
   };
   // --- END FIX: Save to Quiz Deck Function ---
 
-  const exportAsTxt = () => {
-    const content = results.map(wordObj => {
+  const exportAsTxt = async () => {
+    // Get ALL results, not just the limited ones
+    const allResults = await getAllSearchResults();
+    
+    const header = `Anagram Solver Results\nGenerated on: ${new Date().toLocaleDateString()}\nSearch criteria: ${letters || 'Any letters'}\nTotal words found: ${allResults.length}\n\n`;
+    
+    const content = header + allResults.map(wordObj => {
       const word = typeof wordObj === 'string' ? wordObj : wordObj.word || '';
-      const frequencyData = typeof wordObj === 'object' && wordObj.frequency ? wordObj.frequency : null;
-      const frequency = frequencyData && typeof frequencyData === 'object' ? frequencyData.frequency : null;
-      return `${word}${frequency ? ` (${frequency}%)` : ''}`;
+      return word;
     }).join('\n');
     
     const blob = new Blob([content], { type: 'text/plain' });
@@ -511,31 +514,165 @@ export default function AnagramSolver() {
     URL.revokeObjectURL(url);
   };
 
-  const exportAsPdf = () => {
+  const exportAsPdf = async () => {
     const doc = new jsPDF();
     doc.setFontSize(16);
     doc.text('Anagram Solver Results', 20, 20);
     doc.setFontSize(12);
     
+    // Get ALL results, not just the limited ones
+    const allResults = await getAllSearchResults();
+    
     let y = 40;
-    const wordsPerPage = 50;
-    const words = results.map(wordObj => {
+    const wordsPerPage = 45; // Reduced to ensure proper spacing
+    const pageHeight = 280; // A4 page height minus margins
+    const lineHeight = 6; // Increased line height for better readability
+    
+    const words = allResults.map(wordObj => {
       const word = typeof wordObj === 'string' ? wordObj : wordObj.word || '';
-      const frequencyData = typeof wordObj === 'object' && wordObj.frequency ? wordObj.frequency : null;
-      const frequency = frequencyData && typeof frequencyData === 'object' ? frequencyData.frequency : null;
-      return `${word}${frequency ? ` (${frequency}%)` : ''}`;
+      return word;
     });
     
-    for (let i = 0; i < words.length; i++) {
-      if (i > 0 && i % wordsPerPage === 0) {
+    // Add summary information
+    doc.text(`Total words found: ${words.length}`, 20, y);
+    y += lineHeight;
+    doc.text(`Search criteria: ${letters || 'Any letters'}`, 20, y);
+    y += lineHeight;
+    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 20, y);
+    y += lineHeight * 2; // Extra space before words
+    
+    let wordIndex = 0;
+    let currentPage = 1;
+    
+    while (wordIndex < words.length) {
+      // Check if we need a new page
+      if (y + lineHeight > pageHeight) {
         doc.addPage();
-        y = 20;
+        currentPage++;
+        y = 20; // Reset to top of new page
       }
-      doc.text(words[i], 20, y);
-      y += 7;
+      
+      // Add page number for pages after the first
+      if (currentPage > 1) {
+        doc.setFontSize(10);
+        doc.text(`Page ${currentPage}`, 20, 15);
+        doc.setFontSize(12);
+        y = 25; // Start content below page number
+      }
+      
+      // Add words to current page
+      while (wordIndex < words.length && y + lineHeight <= pageHeight) {
+        doc.text(words[wordIndex], 20, y);
+        y += lineHeight;
+        wordIndex++;
+      }
     }
     
     doc.save(`anagram-results-${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+  // Function to get ALL search results without limits for PDF export
+  const getAllSearchResults = async () => {
+    if (!isDictionaryReady || dictionaryError) {
+      return results; // Return current results if dictionary not ready
+    }
+
+    try {
+      const availableLetters = (letters || "").toUpperCase().replace(/[^A-Z?.]/g, "");
+      
+      // Apply all filters to get complete results
+      let filteredWords = dictionaryWords.filter(word => {
+        // Length filter
+        if (selectedLengths.length > 0 && !selectedLengths.includes(word.length)) {
+          return false;
+        }
+        
+        // Letter matching
+        if (availableLetters && !canMakeWord(word, availableLetters)) {
+          return false;
+        }
+        
+        // Pattern filters
+        if (startsWith && !word.toLowerCase().startsWith(startsWith.toLowerCase())) {
+          return false;
+        }
+        if (endsWith && !word.toLowerCase().endsWith(endsWith.toLowerCase())) {
+          return false;
+        }
+        if (contains && !word.toLowerCase().includes(contains.toLowerCase())) {
+          return false;
+        }
+        if (containsAll) {
+          const requiredLetters = containsAll.toLowerCase().split('');
+          if (!requiredLetters.every(letter => word.toLowerCase().includes(letter))) {
+            return false;
+          }
+        }
+        
+        // Special filters
+        if (qWithoutU && word.toLowerCase().includes('q') && !word.toLowerCase().includes('qu')) {
+          return false;
+        }
+        if (isVowelHeavy) {
+          const vowelCount = (word.match(/[aeiou]/gi) || []).length;
+          const consonantCount = word.length - vowelCount;
+          if (vowelCount <= consonantCount) return false;
+        }
+        if (noVowels && /[aeiou]/i.test(word)) {
+          return false;
+        }
+        
+        // Frequency filter
+        if (frequencyFilter !== 'all') {
+          const freqData = frequencyMap.get(word);
+          if (freqData) {
+            const freq = freqData.frequency;
+            const diff = freqData.difficulty;
+            
+            switch (frequencyFilter) {
+              case 'common': if (freq < 70 || diff !== 'common') return false; break;
+              case 'uncommon': if (freq < 30 || freq >= 70 || diff !== 'uncommon') return false; break;
+              case 'rare': if (freq >= 30 || diff !== 'rare') return false; break;
+              case 'expert': if (freq >= 10 || diff !== 'expert') return false; break;
+            }
+          }
+        }
+        
+        // Probability range filter
+        if (minProbability > 0 || maxProbability < 100) {
+          const freqData = frequencyMap.get(word);
+          if (freqData) {
+            const freq = freqData.frequency;
+            if (freq < minProbability || freq > maxProbability) return false;
+          }
+        }
+        
+        return true;
+      });
+
+      // Sort results
+      if (sortOrder === "frequency") {
+        filteredWords.sort((a, b) => {
+          const freqA = frequencyMap.get(a)?.frequency || 50;
+          const freqB = frequencyMap.get(b)?.frequency || 50;
+          return freqB - freqA;
+        });
+      } else {
+        filteredWords.sort((a, b) => sortOrder === "asc" ? 
+          (a.length === b.length ? a.localeCompare(b) : a.length - b.length) : 
+          (a.length === b.length ? a.localeCompare(b) : b.length - a.length)
+        );
+      }
+
+      // Return ALL results with frequency data (no limit)
+      return filteredWords.map(word => ({
+        word,
+        frequency: frequencyMap.get(word) || { frequency: 50, difficulty: 'uncommon' }
+      }));
+    } catch (error) {
+      console.error('Error getting all search results:', error);
+      return results; // Fallback to current results
+    }
   };
 
   // --- REMOVED: saveToCardbox function (as requested) ---
