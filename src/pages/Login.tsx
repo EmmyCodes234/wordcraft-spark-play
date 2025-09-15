@@ -1,11 +1,12 @@
 // File: src/pages/Login.tsx
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "@/context/AuthContext";
 
 const Login: React.FC = () => {
   const [view, setView] = useState<'sign_in' | 'forgot_password'>('sign_in');
@@ -15,33 +16,57 @@ const Login: React.FC = () => {
   const [message, setMessage] = useState("");
 
   const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuth();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      const from = location.state?.from?.pathname || "/dashboard";
+      navigate(from, { replace: true });
+    }
+  }, [user, navigate, location.state]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setMessage("");
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (error) {
-      setMessage("Login failed! Please check your credentials.");
-    } else {
-      setMessage("Login successful! Redirecting...");
-      navigate("/dashboard");
+    
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      
+      if (error) {
+        setMessage("Login failed! Please check your credentials.");
+      } else {
+        setMessage("Login successful! Redirecting...");
+        // Let the useEffect handle the redirect
+      }
+    } catch (error) {
+      setMessage("An unexpected error occurred. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
     setMessage("");
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin,
-      },
-    });
-    setLoading(false);
-    if (error) {
-      setMessage(`Error signing in with Google: ${error.message}`);
+    
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`,
+        },
+      });
+      
+      if (error) {
+        setMessage(`Error signing in with Google: ${error.message}`);
+      }
+    } catch (error) {
+      setMessage("An unexpected error occurred. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
