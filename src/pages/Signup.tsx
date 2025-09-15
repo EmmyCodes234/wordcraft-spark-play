@@ -1,44 +1,121 @@
 // File: src/pages/Signup.tsx
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "@/context/AuthContext";
 
 export default function Signup() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState<'success' | 'error' | 'info'>('info');
+
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuth();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      const from = location.state?.from?.pathname || "/dashboard";
+      navigate(from, { replace: true });
+    }
+  }, [user, navigate, location.state]);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setMessage("");
+    setMessageType('info');
 
-    const { error } = await supabase.auth.signUp({ email, password });
-    if (error) {
-      setMessage(error.message);
-    } else {
-      setMessage("Success! Please check your email to confirm your account.");
+    // Basic validation
+    if (!email || !password) {
+      setMessage("Please fill in all fields.");
+      setMessageType('error');
+      setLoading(false);
+      return;
     }
-    setLoading(false);
+
+    if (password.length < 6) {
+      setMessage("Password must be at least 6 characters long.");
+      setMessageType('error');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.auth.signUp({ 
+        email, 
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/dashboard`
+        }
+      });
+
+      if (error) {
+        console.error('Signup error:', error);
+        
+        // Handle specific error cases
+        if (error.message.includes('already registered')) {
+          setMessage("This email is already registered. Please try signing in instead.");
+        } else if (error.message.includes('Invalid email')) {
+          setMessage("Please enter a valid email address.");
+        } else if (error.message.includes('Password')) {
+          setMessage("Password doesn't meet requirements. Please use at least 6 characters.");
+        } else if (error.message.includes('rate limit')) {
+          setMessage("Too many attempts. Please wait a moment and try again.");
+        } else {
+          setMessage(`Signup failed: ${error.message}`);
+        }
+        setMessageType('error');
+      } else {
+        if (data.user && !data.user.email_confirmed_at) {
+          setMessage("Account created! Please check your email to confirm your account before signing in.");
+          setMessageType('success');
+        } else {
+          setMessage("Account created successfully! Redirecting...");
+          setMessageType('success');
+          // Let useEffect handle redirect if user is automatically signed in
+        }
+      }
+    } catch (error) {
+      console.error('Unexpected signup error:', error);
+      setMessage("An unexpected error occurred. Please try again.");
+      setMessageType('error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleGoogleSignIn = async () => {
     setLoading(true);
     setMessage("");
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin,
-      },
-    });
-    setLoading(false);
-    if (error) {
-      setMessage(`Error signing up with Google: ${error.message}`);
+    setMessageType('info');
+    
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`,
+        },
+      });
+      
+      if (error) {
+        console.error('Google signup error:', error);
+        setMessage(`Error signing up with Google: ${error.message}`);
+        setMessageType('error');
+      }
+    } catch (error) {
+      console.error('Unexpected Google signup error:', error);
+      setMessage("An unexpected error occurred. Please try again.");
+      setMessageType('error');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -118,9 +195,15 @@ export default function Signup() {
           {/* --- End Google Sign-up Section --- */}
 
           {message && (
-            <p className={`text-center text-sm mt-4 ${message.includes("failed") || message.includes("Error") ? "text-red-400" : "text-green-400"}`}>
+            <div className={`text-center text-sm mt-4 p-3 rounded-lg ${
+              messageType === 'error' 
+                ? 'bg-red-500/10 text-red-400 border border-red-500/20' 
+                : messageType === 'success'
+                ? 'bg-green-500/10 text-green-400 border border-green-500/20'
+                : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+            }`}>
               {message}
-            </p>
+            </div>
           )}
 
           <p className="text-center text-sm text-gray-400 mt-6">

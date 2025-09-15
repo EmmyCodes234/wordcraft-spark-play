@@ -46,20 +46,55 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     if (user) {
       setProfileLoading(true);
-      supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single()
-        .then(({ data, error }) => {
+      
+      const fetchProfile = async () => {
+        try {
+          // First, try to get the profile
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+
           if (error) {
             console.error('Error fetching profile:', error);
+            
+            // If profile doesn't exist, try to create it
+            if (error.code === 'PGRST116') { // No rows returned
+              console.log('Profile not found, attempting to create...');
+              
+              const { data: newProfile, error: createError } = await supabase
+                .from('profiles')
+                .insert({
+                  id: user.id,
+                  username: user.email?.split('@')[0] || 'user',
+                  avatar_url: null
+                })
+                .select()
+                .single();
+
+              if (createError) {
+                console.error('Error creating profile:', createError);
+                setProfile(null);
+              } else {
+                console.log('Profile created successfully:', newProfile);
+                setProfile(newProfile as Profile);
+              }
+            } else {
+              setProfile(null);
+            }
+          } else {
+            setProfile(data as Profile);
           }
-          setProfile(data as Profile | null);
-        })
-        .finally(() => {
+        } catch (error) {
+          console.error('Unexpected error in fetchProfile:', error);
+          setProfile(null);
+        } finally {
           setProfileLoading(false);
-        });
+        }
+      };
+
+      fetchProfile();
     } else {
       // No user, so no profile
       setProfile(null);

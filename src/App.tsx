@@ -32,6 +32,7 @@ import SocialFeed from '@/pages/SocialFeed';
 import FriendsPage from '@/pages/FriendsPage';
 import CommunityEvents from '@/pages/CommunityEvents';
 import DatabaseTest from '@/components/DatabaseTest';
+import DatabaseVerification from '@/components/DatabaseVerification';
 import BlogPage from '@/pages/BlogPage';
 import AnnouncementsPage from '@/pages/AnnouncementsPage';
 import LekkiScrabbleClassics from '@/pages/LekkiScrabbleClassics';
@@ -77,6 +78,7 @@ function App() {
                   <Route path="/friends" element={<FriendsPage />} />
                   <Route path="/events" element={<CommunityEvents />} />
                   <Route path="/db-test" element={<DatabaseTest />} />
+                  <Route path="/db-verify" element={<DatabaseVerification />} />
                   
                   {/* --- Blog Routes --- */}
                   <Route path="/blog" element={<BlogPage />} />
