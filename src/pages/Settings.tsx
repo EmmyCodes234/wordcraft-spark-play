@@ -17,6 +17,7 @@ import { useTheme } from "@/context/ThemeContext";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useNavigate } from "react-router-dom";
+import PushNotificationManager from "@/components/PushNotificationManager";
 import { 
   Settings as SettingsIcon, 
   Palette, 
@@ -713,18 +714,22 @@ export default function Settings() {
               description="Configure your app behavior and notifications"
               icon={<Bell className="w-5 h-5 text-primary" />}
             >
-              <SettingItem
-                label="Notifications"
-                description="Receive notifications for updates and reminders"
-              >
-                <div className="flex items-center gap-2">
-                  <Bell className="w-4 h-4 text-muted-foreground" />
-                  <Switch
-                    checked={preferences.notifications}
-                    onCheckedChange={(checked) => updatePreference('notifications', checked)}
-                  />
-                </div>
-              </SettingItem>
+              <div className="space-y-4">
+                <SettingItem
+                  label="In-App Notifications"
+                  description="Receive notifications for updates and reminders"
+                >
+                  <div className="flex items-center gap-2">
+                    <Bell className="w-4 h-4 text-muted-foreground" />
+                    <Switch
+                      checked={preferences.notifications}
+                      onCheckedChange={(checked) => updatePreference('notifications', checked)}
+                    />
+                  </div>
+                </SettingItem>
+                
+                <PushNotificationManager />
+              </div>
 
               <SettingItem
                 label="Auto-save Settings"

@@ -36,6 +36,7 @@ import DatabaseVerification from '@/components/DatabaseVerification';
 import BlogPage from '@/pages/BlogPage';
 import AnnouncementsPage from '@/pages/AnnouncementsPage';
 import LekkiScrabbleClassics from '@/pages/LekkiScrabbleClassics';
+import NotificationTestPage from '@/pages/NotificationTestPage';
 
 // --- NEW: Import Leaderboard and Public Decks Pages ---
 // // import LeaderboardPage from '@/pages/LeaderboardPage'; // Assuming path: src/pages/LeaderboardPage.tsx
@@ -79,6 +80,7 @@ function App() {
                   <Route path="/events" element={<CommunityEvents />} />
                   <Route path="/db-test" element={<DatabaseTest />} />
                   <Route path="/db-verify" element={<DatabaseVerification />} />
+                  <Route path="/notification-test" element={<NotificationTestPage />} />
                   
                   {/* --- Blog Routes --- */}
                   <Route path="/blog" element={<BlogPage />} />

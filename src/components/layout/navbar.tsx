@@ -4,6 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { cn } from "@/lib/utils";
 import { Menu, X, LogOut, Home, Search, Zap, BookOpen, User, Settings, Gamepad2 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import NotificationsBell from "@/components/NotificationsBell";
 
 export default function Navbar() {
   const { user, signOut } = useAuth();
@@ -78,6 +79,7 @@ export default function Navbar() {
         <div className="hidden lg:flex items-center space-x-2">
           {user && (
             <>
+              <NotificationsBell />
               <Link
                 to="/profile"
                 className={cn(
