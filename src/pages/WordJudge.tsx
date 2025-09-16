@@ -7,11 +7,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { LoadingSpinner } from "@/components/ui/loading";
 import { ErrorState } from "@/components/ui/error-boundary";
 import { usePageSession } from "@/context/SessionContext";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 type Stage = "wordCount" | "judge" | "result";
 
 const WordJudge = () => {
   const { session, setSession } = usePageSession('wordJudge');
+  const isMobile = useIsMobile();
   
   const [stage, setStage] = useState<Stage>("wordCount");
   const [wordCount, setWordCount] = useState(0);
@@ -38,10 +40,11 @@ const WordJudge = () => {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (stage === "judge") {
-        if (event.key === "Tab") {
+        // Desktop: use TAB to judge
+        if (!isMobile && event.key === "Tab") {
           event.preventDefault();
           handleJudge();
-        } else if (event.key !== "Tab" && result) {
+        } else if (!isMobile && event.key !== "Tab" && result) {
           // Clear results when any key is pressed (except TAB)
           setResult(null);
         }
@@ -50,7 +53,7 @@ const WordJudge = () => {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [stage, words, wordSet, result]);
+  }, [stage, words, wordSet, result, isMobile]);
 
   useEffect(() => {
     const fetchWords = async () => {
@@ -223,7 +226,7 @@ const WordJudge = () => {
 
                     {/* Center - Scrabble Tile */}
                     <div className="flex justify-center">
-                      <div className="w-16 h-16 bg-red-500 border-2 border-white rounded flex items-center justify-center relative">
+                      <div className="w-16 h-16 bg-green-600 border-2 border-white rounded flex items-center justify-center relative">
                         <span className="text-white text-2xl font-bold">W</span>
                         <span className="absolute bottom-1 right-1 text-white text-xs font-bold">4</span>
                       </div>
@@ -276,6 +279,51 @@ const WordJudge = () => {
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ duration: 0.3 }}
               >
+                {isMobile ? (
+                  <div className="bg-gray-100 min-h-[70vh] flex flex-col justify-between p-4 rounded-lg">
+                    {/* Top Section - Instructions (Mobile wording) */}
+                    <div className="text-center space-y-1">
+                      <p className="text-base text-black">
+                        1. CHALLENGER: Enter {wordCount} word{wordCount !== 1 ? 's' : ''}.
+                      </p>
+                      <p className="text-base text-black">
+                        2. Tap JUDGE to check the play.
+                      </p>
+                      <p className="text-base text-black">
+                        3. Tap CLEAR to reset.
+                      </p>
+                    </div>
+
+                    {/* Middle Section - Large Input Area */}
+                    <div className="flex-1 flex items-center justify-center">
+                      <div className="w-full">
+                        <input
+                          ref={inputRef}
+                          type="text"
+                          placeholder=""
+                          value={words}
+                          onChange={(e) => setWords(e.target.value.toUpperCase())}
+                          className="w-full h-40 bg-white border-0 text-[14vw] leading-none font-mono text-black px-4 focus:outline-none"
+                          disabled={loading}
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+
+                    {/* Bottom Section - Mobile Controls */}
+                    <div className="flex gap-3">
+                      <Button onClick={handleJudge} disabled={!words.trim() || loading} className="flex-1 h-12 text-base">
+                        Judge
+                      </Button>
+                      <Button variant="outline" onClick={() => { setWords(""); setResult(null); inputRef.current?.focus(); }} className="h-12 text-base">
+                        Clear
+                      </Button>
+                      <Button variant="outline" onClick={resetToWordCount} className="h-12 text-base">
+                        Back
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
                 <div className="bg-gray-100 min-h-[600px] flex flex-col justify-between p-8 rounded-lg">
                   {/* Top Section - Instructions */}
                   <div className="text-center space-y-2">
@@ -316,7 +364,7 @@ const WordJudge = () => {
 
                     {/* Center - Scrabble Tile */}
                     <div className="flex justify-center">
-                      <div className="w-16 h-16 bg-red-500 border-2 border-white rounded flex items-center justify-center relative">
+                      <div className="w-16 h-16 bg-green-600 border-2 border-white rounded flex items-center justify-center relative">
                         <span className="text-white text-2xl font-bold">W</span>
                         <span className="absolute bottom-1 right-1 text-white text-xs font-bold">4</span>
                       </div>
@@ -333,6 +381,7 @@ const WordJudge = () => {
                     </div>
                   </div>
                 </div>
+                )}
               </motion.div>
             )}
 
