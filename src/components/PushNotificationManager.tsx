@@ -12,12 +12,17 @@ const PushNotificationManager: React.FC = () => {
   const [permission, setPermission] = useState<NotificationPermission>('default');
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [vapidConfigured, setVapidConfigured] = useState(false);
 
   useEffect(() => {
     // Check if push notifications are supported
     if ('serviceWorker' in navigator && 'PushManager' in window) {
       setIsSupported(true);
       setPermission(Notification.permission);
+      
+      // Check VAPID configuration
+      const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+      setVapidConfigured(!!vapidKey);
       
       // Check if already subscribed
       checkSubscriptionStatus();
@@ -67,9 +72,12 @@ const PushNotificationManager: React.FC = () => {
       console.log('Service worker registered:', registration);
       
       // Convert VAPID public key to Uint8Array
-      const vapidPublicKey = process.env.REACT_APP_VAPID_PUBLIC_KEY;
+      const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
       if (!vapidPublicKey) {
-        throw new Error('VAPID public key not configured');
+        const errorMsg = 'VAPID public key not configured. Please check the setup guide.';
+        console.error(errorMsg);
+        alert(errorMsg + '\n\nSee PUSH_NOTIFICATIONS_SETUP_GUIDE.md for instructions.');
+        throw new Error(errorMsg);
       }
       
       const applicationServerKey = Uint8Array.from(
@@ -130,29 +138,6 @@ const PushNotificationManager: React.FC = () => {
     }
   };
 
-  const testNotification = async () => {
-    if (!user) return;
-    
-    try {
-      const { error } = await supabase.functions.invoke('send-push-notification', {
-        body: {
-          user_id: user.id,
-          title: 'Test Notification',
-          body: 'This is a test push notification from WordSmith!',
-          type: 'system'
-        }
-      });
-      
-      if (error) {
-        console.error('Error sending test notification:', error);
-      } else {
-        console.log('Test notification sent');
-      }
-    } catch (error) {
-      console.error('Error testing notification:', error);
-    }
-  };
-
   if (!isSupported) {
     return (
       <Card>
@@ -176,6 +161,14 @@ const PushNotificationManager: React.FC = () => {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {!vapidConfigured && (
+          <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+            <p className="text-sm text-yellow-800">
+              ⚠️ VAPID keys not configured. See <code className="bg-yellow-100 px-1 rounded">PUSH_NOTIFICATIONS_SETUP_GUIDE.md</code> for setup instructions.
+            </p>
+          </div>
+        )}
+        
         <div className="flex items-center justify-between">
           <div>
             <p className="font-medium">Enable Push Notifications</p>
@@ -186,7 +179,7 @@ const PushNotificationManager: React.FC = () => {
           <Switch
             checked={isSubscribed}
             onCheckedChange={isSubscribed ? unsubscribeFromPush : requestPermission}
-            disabled={isLoading || permission === 'denied'}
+            disabled={isLoading || permission === 'denied' || !vapidConfigured}
           />
         </div>
         
@@ -194,17 +187,6 @@ const PushNotificationManager: React.FC = () => {
           <div className="p-3 bg-red-50 border border-red-200 rounded-md">
             <p className="text-sm text-red-600">
               Push notifications are blocked. Please enable them in your browser settings.
-            </p>
-          </div>
-        )}
-        
-        {permission === 'granted' && isSubscribed && (
-          <div className="space-y-2">
-            <Button onClick={testNotification} variant="outline" size="sm">
-              Send Test Notification
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              Click to test if push notifications are working
             </p>
           </div>
         )}

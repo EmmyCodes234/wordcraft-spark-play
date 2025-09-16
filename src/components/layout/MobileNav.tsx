@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/context/ThemeContext';
+import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabaseClient';
 import { 
   Home, 
   BookOpen, 
@@ -14,14 +16,65 @@ import {
   Users,
   Calendar,
   Trophy,
-  Settings
+  Settings,
+  Bell
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const MobileNav = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const { colors } = useTheme();
+  const { user } = useAuth();
+
+  // Load unread notifications count
+  useEffect(() => {
+    if (!user) return;
+
+    const loadUnreadCount = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('notifications')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('is_read', false);
+
+        if (error) {
+          console.error('Error loading unread count:', error);
+          return;
+        }
+
+        setUnreadCount(data?.length || 0);
+      } catch (error) {
+        console.error('Error loading unread count:', error);
+      }
+    };
+
+    loadUnreadCount();
+
+    // Set up real-time subscription for unread count
+    const channel = supabase
+      .channel(`mobile-nav-notifications-${user.id}`)
+      .on(
+        'postgres_changes',
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'notifications', 
+          filter: `user_id=eq.${user.id}` 
+        },
+        () => {
+          loadUnreadCount(); // Reload count when notifications change
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
 
   const navItems = [
     {
@@ -81,8 +134,38 @@ const MobileNav = () => {
 
   return (
     <>
-      {/* Hamburger Menu Button */}
-      <div className="lg:hidden fixed top-4 right-4 z-50">
+      {/* Mobile Notification Bell + Hamburger Menu */}
+      <div className="lg:hidden fixed top-4 right-4 z-50 flex items-center gap-2">
+        {/* Notification Bell */}
+        {user && (
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={() => navigate('/notifications')}
+            className="mobile-haptic text-white p-3 rounded-2xl shadow-lg relative"
+            style={{ backgroundColor: colors.primary }}
+            animate={unreadCount > 0 ? { 
+              scale: [1, 1.05, 1],
+              transition: { 
+                duration: 2, 
+                repeat: Infinity, 
+                ease: "easeInOut" 
+              } 
+            } : {}}
+          >
+            <Bell className="w-6 h-6" />
+            {unreadCount > 0 && (
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[20px] text-center font-bold"
+              >
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </motion.div>
+            )}
+          </motion.button>
+        )}
+        
+        {/* Hamburger Menu Button */}
         <motion.button
           whileTap={{ scale: 0.9 }}
           onClick={() => setIsMenuOpen(!isMenuOpen)}

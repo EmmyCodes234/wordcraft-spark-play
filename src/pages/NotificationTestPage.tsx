@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Bell, Send, CheckCircle, XCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/context/AuthContext';
+import NotificationDebugger from '@/components/NotificationDebugger';
+import AutomatedNotificationsManager from '@/components/AutomatedNotificationsManager';
 
 const NotificationTestPage: React.FC = () => {
   const { user } = useAuth();
@@ -36,27 +38,23 @@ const NotificationTestPage: React.FC = () => {
     }
   };
 
-  const testPushNotification = async () => {
+  const cleanupTestNotifications = async () => {
     if (!user) return;
     
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('send-push-notification', {
-        body: {
-          user_id: user.id,
-          title: 'Test Push Notification',
-          body: 'This is a test push notification from WordSmith!',
-          type: 'system',
-          metadata: { test: true }
-        }
-      });
+      const { data, error } = await supabase.rpc('cleanup_test_notifications');
       
       if (error) {
         console.error('Error:', error);
         setLastResult({ success: false, error: error.message });
       } else {
-        console.log('Success:', data);
-        setLastResult({ success: true, data });
+        console.log('Cleanup result:', data);
+        setLastResult({ 
+          success: true, 
+          message: `Cleaned up ${data} test notifications`,
+          data 
+        });
       }
     } catch (error) {
       console.error('Error:', error);
@@ -145,6 +143,30 @@ const NotificationTestPage: React.FC = () => {
             </CardContent>
           </Card>
 
+          {/* Cleanup */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-red-600">
+                <XCircle className="h-5 w-5" />
+                Cleanup Test Notifications
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Remove all test notifications from the database. This will clean up test data.
+              </p>
+              <Button 
+                onClick={cleanupTestNotifications} 
+                disabled={isLoading}
+                variant="destructive"
+                className="w-full"
+              >
+                <XCircle className="h-4 w-4 mr-2" />
+                Clean Up All Test Notifications
+              </Button>
+            </CardContent>
+          </Card>
+
           {/* Results */}
           {lastResult && (
             <Card>
@@ -192,6 +214,12 @@ const NotificationTestPage: React.FC = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Debugger */}
+          <NotificationDebugger />
+
+          {/* Automated Notifications Manager */}
+          <AutomatedNotificationsManager />
         </div>
       </div>
     </div>

@@ -3,8 +3,12 @@ import { Outlet } from "react-router-dom";
 import Navbar from "./navbar";
 import MobileNav from "./MobileNav";
 import { AdTicker } from "@/components/ui/AdTicker";
+import { useActivityTracker } from "@/hooks/useActivityTracker";
 
 export default function Layout() {
+  // Track user activity for last_active updates
+  useActivityTracker();
+
   return (
     <div className="flex flex-col min-h-screen bg-background transition-colors duration-300">
       {/* Mobile Status Bar */}
